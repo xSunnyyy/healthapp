@@ -16,7 +16,6 @@ data class SleepSegment(
 data class SleepSummary(
     val start: Instant,
     val end: Instant,
-    val total: Duration,
     val timeInBed: Duration,
     val awake: Duration,
     val light: Duration,
@@ -28,6 +27,9 @@ data class SleepSummary(
     val avgSpo2: Double?,
     val avgRespiratoryRate: Double?,
 ) {
+    // Matches what Google Health / Fitbit show: sum of asleep stages.
+    val total: Duration get() = light + deep + rem
+
     val efficiencyPct: Int
         get() = if (timeInBed.isZero) 0
         else ((total.toMinutes().toDouble() / timeInBed.toMinutes()) * 100).toInt()

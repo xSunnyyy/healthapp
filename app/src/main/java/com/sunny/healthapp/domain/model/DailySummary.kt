@@ -13,5 +13,6 @@ data class DailySummary(
     val avgHeartRate: Int?,
     val minHeartRate: Int?,
     val maxHeartRate: Int?,
+    val latestHeartRate: Int?,
     val restingHeartRate: Int?,
 )
