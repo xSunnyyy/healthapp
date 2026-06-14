@@ -10,11 +10,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.sunny.healthapp.ui.theme.Accent
 import com.sunny.healthapp.ui.theme.Ink900
 import com.sunny.healthapp.ui.theme.Ink950
-import com.sunny.healthapp.ui.theme.ReadinessLilac
-import com.sunny.healthapp.ui.theme.SleepBlue
-import com.sunny.healthapp.ui.theme.WarmPeach
+import com.sunny.healthapp.ui.theme.Lavender
 
 @Composable
 fun AppBackground(content: @Composable BoxScope.() -> Unit) {
@@ -24,41 +23,31 @@ fun AppBackground(content: @Composable BoxScope.() -> Unit) {
             .background(
                 Brush.verticalGradient(
                     0.0f to Ink900,
-                    0.6f to Ink950,
+                    0.35f to Ink950,
                     1.0f to Ink950,
                 )
             ),
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            // Top-right lilac glow
+            // Single discreet wash at the top to lift the headline
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(ReadinessLilac.copy(alpha = 0.22f), Color.Transparent),
-                    center = Offset(size.width * 0.85f, size.height * 0.02f),
-                    radius = size.width * 0.85f,
+                    colors = listOf(Accent.copy(alpha = 0.10f), Color.Transparent),
+                    center = Offset(size.width * 0.5f, -size.height * 0.05f),
+                    radius = size.width * 0.9f,
                 ),
-                radius = size.width * 0.85f,
-                center = Offset(size.width * 0.85f, size.height * 0.02f),
+                radius = size.width * 0.9f,
+                center = Offset(size.width * 0.5f, -size.height * 0.05f),
             )
-            // Mid-left blue glow
+            // Very faint bottom-left lavender bloom
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(SleepBlue.copy(alpha = 0.12f), Color.Transparent),
-                    center = Offset(-size.width * 0.1f, size.height * 0.45f),
+                    colors = listOf(Lavender.copy(alpha = 0.06f), Color.Transparent),
+                    center = Offset(-size.width * 0.1f, size.height),
                     radius = size.width * 0.7f,
                 ),
                 radius = size.width * 0.7f,
-                center = Offset(-size.width * 0.1f, size.height * 0.45f),
-            )
-            // Bottom warm peach hint
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(WarmPeach.copy(alpha = 0.10f), Color.Transparent),
-                    center = Offset(size.width * 0.7f, size.height * 1.05f),
-                    radius = size.width * 0.8f,
-                ),
-                radius = size.width * 0.8f,
-                center = Offset(size.width * 0.7f, size.height * 1.05f),
+                center = Offset(-size.width * 0.1f, size.height),
             )
         }
         content()
