@@ -2,6 +2,7 @@ package com.sunny.healthapp.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,7 +24,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.sunny.healthapp.ui.theme.Ink800
-import com.sunny.healthapp.ui.theme.TextSecondary
 
 /**
  * Top-row metric tile — soft light gradient sitting on the dark ink base.
@@ -38,6 +38,7 @@ fun GradientTile(
     glowStart: Color,
     glowEnd: Color,
     modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
 ) {
     Box(
         modifier = modifier
@@ -61,7 +62,8 @@ fun GradientTile(
                     1.0f to Color.White.copy(alpha = 0.02f),
                 ),
                 shape = RoundedCornerShape(22.dp),
-            ),
+            )
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
     ) {
         Column(
             modifier = Modifier

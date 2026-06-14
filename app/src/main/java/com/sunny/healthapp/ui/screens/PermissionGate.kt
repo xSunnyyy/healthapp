@@ -24,9 +24,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import com.sunny.healthapp.HealthApp
 import com.sunny.healthapp.data.health.HealthConnectAvailability
 import com.sunny.healthapp.data.health.HealthPermissions
@@ -43,20 +40,8 @@ fun PermissionGate(content: @Composable () -> Unit) {
         granted = result.containsAll(HealthPermissions.READ)
     }
 
-    val lifecycle = LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(lifecycle) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                granted = null
-            }
-        }
-        lifecycle.addObserver(observer)
-    }
-
-    LaunchedEffect(granted) {
-        if (granted == null) {
-            granted = app.healthConnect.hasAllPermissions()
-        }
+    LaunchedEffect(Unit) {
+        granted = app.healthConnect.hasAllPermissions()
     }
 
     when {

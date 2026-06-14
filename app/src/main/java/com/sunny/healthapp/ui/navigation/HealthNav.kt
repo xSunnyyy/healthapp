@@ -59,7 +59,17 @@ fun HealthNavHost() {
                 startDestination = HealthDest.Home.route,
                 modifier = Modifier.fillMaxSize(),
             ) {
-                composable(HealthDest.Home.route) { HomeScreen() }
+                composable(HealthDest.Home.route) {
+                    HomeScreen(onNavigate = { route ->
+                        if (HealthDest.entries.any { it.route == route }) {
+                            navController.navigate(route) {
+                                popUpTo(HealthDest.Home.route) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    })
+                }
                 composable(HealthDest.Sleep.route) { SleepScreen() }
                 composable(HealthDest.Readiness.route) { ReadinessScreen() }
                 composable(HealthDest.Activity.route) { ActivityScreen() }

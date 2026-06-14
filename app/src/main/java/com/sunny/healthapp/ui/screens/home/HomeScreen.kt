@@ -1,6 +1,7 @@
 package com.sunny.healthapp.ui.screens.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
@@ -59,17 +62,17 @@ import com.sunny.healthapp.ui.theme.TileWarmStart
 import java.time.LocalDate
 
 @Composable
-fun HomeScreen() {
+fun HomeScreen(onNavigate: (String) -> Unit = {}) {
     PermissionGate {
         val app = LocalContext.current.applicationContext as HealthApp
         val vm: HomeViewModel = viewModel(factory = HomeViewModel.factory(app))
         val state by vm.state.collectAsStateWithLifecycle()
-        HomeContent(state, vm)
+        HomeContent(state, vm, onNavigate)
     }
 }
 
 @Composable
-private fun HomeContent(state: HomeState, vm: HomeViewModel) {
+private fun HomeContent(state: HomeState, vm: HomeViewModel, onNavigate: (String) -> Unit) {
     val statusInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     Column(
         modifier = Modifier
@@ -112,7 +115,7 @@ private fun HomeContent(state: HomeState, vm: HomeViewModel) {
 
         StaggeredEnter(index = 2) { m ->
             Box(modifier = m.padding(horizontal = 20.dp)) {
-                TopMetricRow(state)
+                TopMetricRow(state, onNavigate)
             }
         }
 
@@ -128,11 +131,22 @@ private fun HomeContent(state: HomeState, vm: HomeViewModel) {
 
         StaggeredEnter(index = 4) { m ->
             Row(
-                modifier = m.padding(horizontal = 20.dp).fillMaxWidth(),
+                modifier = m
+                    .padding(horizontal = 20.dp)
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                HeartRatePanel(state, modifier = Modifier.weight(1f))
-                SleepPanel(state.sleep, modifier = Modifier.weight(1f))
+                HeartRatePanel(
+                    state,
+                    onClick = { onNavigate("readiness") },
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                )
+                SleepPanel(
+                    state.sleep,
+                    onClick = { onNavigate("sleep") },
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                )
             }
         }
 
@@ -149,23 +163,24 @@ private fun HomeContent(state: HomeState, vm: HomeViewModel) {
 private fun headerEyebrow(date: LocalDate): String {
     val today = LocalDate.now()
     return when (date) {
-        today -> "Today · Daily summary"
-        today.minusDays(1) -> "Yesterday · Daily summary"
+        today -> "Daily summary · Today"
+        today.minusDays(1) -> "Daily summary · Yesterday"
         else -> "Daily summary"
     }
 }
 
 private fun headerTitle(date: LocalDate): String {
     val today = LocalDate.now()
+    val fmt = java.time.format.DateTimeFormatter.ofPattern("MMM d", java.util.Locale.getDefault())
     return when (date) {
         today -> "Your health\nsummary today"
-        today.minusDays(1) -> "Your health\nyesterday"
-        else -> "Your health\nthis day"
+        today.minusDays(1) -> "Your health\nsummary yesterday"
+        else -> "Your health\nsummary on ${date.format(fmt)}"
     }
 }
 
 @Composable
-private fun TopMetricRow(state: HomeState) {
+private fun TopMetricRow(state: HomeState, onNavigate: (String) -> Unit) {
     val daily = state.daily
     val prev = state.previousDaily
     val stepsDelta = deltaPct(daily?.steps?.toDouble(), prev?.steps?.toDouble())
@@ -181,6 +196,7 @@ private fun TopMetricRow(state: HomeState) {
                     glowStart = TileCoolStart,
                     glowEnd = TileCoolEnd,
                     modifier = mod,
+                    onClick = { onNavigate("activity") },
                 )
             },
             { mod ->
@@ -191,6 +207,7 @@ private fun TopMetricRow(state: HomeState) {
                     glowStart = TileWarmStart,
                     glowEnd = TileWarmEnd,
                     modifier = mod,
+                    onClick = { onNavigate("activity") },
                 )
             },
             { mod ->
@@ -201,6 +218,7 @@ private fun TopMetricRow(state: HomeState) {
                     glowStart = TileSoftStart,
                     glowEnd = TileSoftEnd,
                     modifier = mod,
+                    onClick = { onNavigate("sleep") },
                 )
             },
         ),
@@ -265,60 +283,68 @@ private fun StepsPanel(state: HomeState) {
 }
 
 @Composable
-private fun HeartRatePanel(state: HomeState, modifier: Modifier = Modifier) {
+private fun HeartRatePanel(state: HomeState, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val hr = state.daily?.latestHeartRate
         ?: state.daily?.avgHeartRate
         ?: state.daily?.restingHeartRate
-    Panel(modifier = modifier, contentPadding = 18.dp) {
-        Text("Heart Rate", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-        Spacer(Modifier.height(12.dp))
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                text = hr?.toString() ?: "—",
-                style = MaterialTheme.typography.headlineSmall,
-                color = TextPrimary,
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = "BPM",
-                style = MaterialTheme.typography.labelMedium,
-                color = TextSecondary,
-                modifier = Modifier.padding(bottom = 4.dp),
-            )
+    Panel(modifier = modifier.clickable(onClick = onClick), contentPadding = 18.dp) {
+        Column(modifier = Modifier.fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
+            Column {
+                Text("Heart Rate", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = hr?.toString() ?: "—",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = TextPrimary,
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = "BPM",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(bottom = 4.dp),
+                    )
+                }
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = if (state.date == LocalDate.now()) "Resting" else "Avg",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextMuted,
+                )
+            }
+            Spacer(Modifier.height(14.dp))
+            val sparkline = listOf(72f, 76f, 78f, 74f, 80f, 84f, 78f, 76f, 82f, 78f)
+            MiniSparkline(values = sparkline, color = Crimson, height = 44.dp)
         }
-        Spacer(Modifier.height(2.dp))
-        Text(
-            text = if (state.date == LocalDate.now()) "Resting" else "Avg",
-            style = MaterialTheme.typography.labelSmall,
-            color = TextMuted,
-        )
-        Spacer(Modifier.height(14.dp))
-        val sparkline = listOf(72f, 76f, 78f, 74f, 80f, 84f, 78f, 76f, 82f, 78f)
-        MiniSparkline(values = sparkline, color = Crimson, height = 40.dp)
     }
 }
 
 @Composable
-private fun SleepPanel(sleep: SleepSummary?, modifier: Modifier = Modifier) {
-    Panel(modifier = modifier, contentPadding = 18.dp) {
-        Text("Sleep", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-        Spacer(Modifier.height(12.dp))
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                text = sleep?.let { formatSleepShort(it.total.toMinutes()) } ?: "—",
-                style = MaterialTheme.typography.headlineSmall,
-                color = TextPrimary,
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = "Hrs & Min",
-                style = MaterialTheme.typography.labelMedium,
-                color = TextSecondary,
-                modifier = Modifier.padding(bottom = 4.dp),
-            )
+private fun SleepPanel(sleep: SleepSummary?, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Panel(modifier = modifier.clickable(onClick = onClick), contentPadding = 18.dp) {
+        Column(modifier = Modifier.fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
+            Column {
+                Text("Sleep", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = sleep?.let { formatSleepShort(it.total.toMinutes()) } ?: "—",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = TextPrimary,
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = "Hrs & Min",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(bottom = 4.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            SleepRibbon(sleep)
         }
-        Spacer(Modifier.height(14.dp))
-        SleepRibbon(sleep)
     }
 }
 

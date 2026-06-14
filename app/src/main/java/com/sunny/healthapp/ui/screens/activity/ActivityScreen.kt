@@ -288,10 +288,7 @@ private fun StackedActivityBars(state: ActivityState) {
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = day.date.format(java.time.format.DateTimeFormatter.ofPattern("ha"))
-                        .lowercase()
-                        .replace("am", "AM").replace("pm", "PM")
-                        .let { day.date.dayOfMonth.toString() },
+                    text = day.date.dayOfMonth.toString(),
                     style = MaterialTheme.typography.labelSmall,
                     color = TextMuted,
                 )
