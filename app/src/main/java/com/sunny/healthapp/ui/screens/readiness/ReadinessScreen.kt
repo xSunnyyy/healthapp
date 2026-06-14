@@ -31,7 +31,6 @@ import com.sunny.healthapp.ui.components.ScoreRing
 import com.sunny.healthapp.ui.components.SectionHeader
 import com.sunny.healthapp.ui.screens.PermissionGate
 import com.sunny.healthapp.ui.theme.ReadinessLilac
-import com.sunny.healthapp.ui.theme.ReadinessLilacDeep
 
 @Composable
 fun ReadinessScreen() {
@@ -63,7 +62,6 @@ private fun Content(state: ReadinessState) {
                 score = state.readiness?.score ?: 0,
                 label = "Readiness",
                 color = ReadinessLilac,
-                glowColor = ReadinessLilacDeep,
             )
         }
         SectionHeader("Contributors")

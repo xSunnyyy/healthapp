@@ -3,7 +3,7 @@ package com.sunny.healthapp.ui.navigation
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bedtime
-import androidx.compose.material.icons.outlined.DirectionsRun
+import androidx.compose.material.icons.automirrored.outlined.DirectionsRun
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material3.Icon
@@ -31,7 +31,7 @@ enum class HealthDest(val route: String, val label: String, val icon: ImageVecto
     Home("home", "Home", Icons.Outlined.Home),
     Sleep("sleep", "Sleep", Icons.Outlined.Bedtime),
     Readiness("readiness", "Readiness", Icons.Outlined.Favorite),
-    Activity("activity", "Activity", Icons.Outlined.DirectionsRun),
+    Activity("activity", "Activity", Icons.AutoMirrored.Outlined.DirectionsRun),
 }
 
 @Composable
