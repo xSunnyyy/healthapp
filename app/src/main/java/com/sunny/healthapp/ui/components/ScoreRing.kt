@@ -18,7 +18,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -27,29 +26,41 @@ fun ScoreRing(
     score: Int,
     label: String,
     color: Color,
-    glowColor: Color = color,
     modifier: Modifier = Modifier,
-    size: Dp = 220.dp,
-    strokeWidth: Dp = 16.dp,
+    size: Dp = 260.dp,
+    strokeWidth: Dp = 6.dp,
 ) {
     val animated by animateFloatAsState(
         targetValue = score.coerceIn(0, 100) / 100f,
-        animationSpec = tween(durationMillis = 900),
+        animationSpec = tween(durationMillis = 1100),
         label = "scoreRing",
     )
 
-    Box(
-        modifier = modifier.size(size),
-        contentAlignment = Alignment.Center,
-    ) {
+    Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.size(size)) {
             val stroke = strokeWidth.toPx()
+            val haloStroke = stroke * 6f
             val arcSize = Size(this.size.width - stroke, this.size.height - stroke)
             val topLeft = Offset(stroke / 2f, stroke / 2f)
 
+            // Outer halo / glow
+            drawArc(
+                brush = Brush.radialGradient(
+                    colors = listOf(color.copy(alpha = 0.18f), Color.Transparent),
+                    center = Offset(this.size.width / 2f, this.size.height / 2f),
+                    radius = this.size.width / 2f,
+                ),
+                startAngle = -90f,
+                sweepAngle = 360f * animated,
+                useCenter = false,
+                topLeft = topLeft,
+                size = arcSize,
+                style = Stroke(width = haloStroke, cap = StrokeCap.Round),
+            )
+
             // Track
             drawArc(
-                color = Color.White.copy(alpha = 0.06f),
+                color = Color.White.copy(alpha = 0.05f),
                 startAngle = -90f,
                 sweepAngle = 360f,
                 useCenter = false,
@@ -58,13 +69,9 @@ fun ScoreRing(
                 style = Stroke(width = stroke, cap = StrokeCap.Round),
             )
 
-            // Progress gradient
-            val brush = Brush.sweepGradient(
-                colors = listOf(glowColor.copy(alpha = 0.4f), color, color),
-                center = Offset(this.size.width / 2f, this.size.height / 2f),
-            )
+            // Progress
             drawArc(
-                brush = brush,
+                color = color,
                 startAngle = -90f,
                 sweepAngle = 360f * animated,
                 useCenter = false,
@@ -76,15 +83,14 @@ fun ScoreRing(
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = score.toString(),
-                style = MaterialTheme.typography.displayLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-                fontWeight = FontWeight.Light,
-            )
-            Text(
                 text = label.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
                 color = color,
+            )
+            Text(
+                text = score.toString(),
+                style = MaterialTheme.typography.displayLarge,
+                color = MaterialTheme.colorScheme.onBackground,
             )
         }
     }

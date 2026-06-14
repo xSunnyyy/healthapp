@@ -41,8 +41,11 @@ class HealthRepository(private val hc: HealthConnectManager) {
         val exercise = hc.read(ExerciseSessionRecord::class, range)
             .sumOf { Duration.between(it.startTime, it.endTime).toMinutes() }
         val floors = hc.read(FloorsClimbedRecord::class, range).sumOf { it.floors }
-        val hr = hc.read(HeartRateRecord::class, range)
-            .flatMap { it.samples }.map { it.beatsPerMinute.toInt() }
+        val hrSamples = hc.read(HeartRateRecord::class, range)
+            .flatMap { record -> record.samples.map { it.time to it.beatsPerMinute.toInt() } }
+            .sortedBy { it.first }
+        val hr = hrSamples.map { it.second }
+        val latest = hrSamples.lastOrNull()?.second
         val rhr = hc.read(RestingHeartRateRecord::class, range)
             .map { it.beatsPerMinute.toInt() }.minOrNull()
 
@@ -57,6 +60,7 @@ class HealthRepository(private val hc: HealthConnectManager) {
             avgHeartRate = hr.takeIf { it.isNotEmpty() }?.average()?.toInt(),
             minHeartRate = hr.minOrNull(),
             maxHeartRate = hr.maxOrNull(),
+            latestHeartRate = latest,
             restingHeartRate = rhr,
         )
     }
@@ -94,7 +98,6 @@ class HealthRepository(private val hc: HealthConnectManager) {
         val deep = byStage[SleepStage.Deep] ?: Duration.ZERO
         val rem = byStage[SleepStage.REM] ?: Duration.ZERO
         val timeInBed = Duration.between(s.startTime, s.endTime)
-        val asleep = timeInBed - awake
 
         val hr = hc.read(HeartRateRecord::class, range)
             .flatMap { it.samples }.map { it.beatsPerMinute.toInt() }
@@ -112,7 +115,6 @@ class HealthRepository(private val hc: HealthConnectManager) {
         return SleepSummary(
             start = s.startTime,
             end = s.endTime,
-            total = asleep,
             timeInBed = timeInBed,
             awake = awake,
             light = light,
