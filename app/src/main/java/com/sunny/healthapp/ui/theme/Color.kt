@@ -3,11 +3,16 @@ package com.sunny.healthapp.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // Background tones — deep, near-black with subtle warmth
-val Ink900 = Color(0xFF0B0C10)
-val Ink800 = Color(0xFF111319)
-val Ink700 = Color(0xFF181B23)
-val Ink600 = Color(0xFF22262F)
-val Ink500 = Color(0xFF2C313B)
+val Ink950 = Color(0xFF05060A)
+val Ink900 = Color(0xFF0A0B11)
+val Ink800 = Color(0xFF101218)
+val Ink700 = Color(0xFF161922)
+val Ink600 = Color(0xFF1F232E)
+val Ink500 = Color(0xFF2A2F3A)
+
+// Glass edge / border tints
+val GlassEdgeLight = Color(0x33FFFFFF)
+val GlassEdgeDark = Color(0x0AFFFFFF)
 
 // Text
 val TextPrimary = Color(0xFFF2EDE6)

@@ -1,19 +1,22 @@
 package com.sunny.healthapp.ui.screens.activity
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -22,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -29,10 +33,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sunny.healthapp.HealthApp
 import com.sunny.healthapp.domain.model.DailySummary
-import com.sunny.healthapp.ui.components.ActivityRing
-import com.sunny.healthapp.ui.components.ActivityRings
-import com.sunny.healthapp.ui.components.MetricCard
-import com.sunny.healthapp.ui.components.SectionHeader
+import com.sunny.healthapp.ui.components.ArcGauge
+import com.sunny.healthapp.ui.components.GlassCard
 import com.sunny.healthapp.ui.screens.PermissionGate
 import com.sunny.healthapp.ui.theme.ActivityGreen
 import com.sunny.healthapp.ui.theme.HeartRed
@@ -48,7 +50,7 @@ fun ActivityScreen() {
         val state by vm.state.collectAsStateWithLifecycle()
         if (state.loading) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = ActivityGreen)
+                CircularProgressIndicator(color = ActivityGreen, strokeWidth = 2.dp)
             }
         } else {
             Content(state)
@@ -58,107 +60,161 @@ fun ActivityScreen() {
 
 @Composable
 private fun Content(state: ActivityState) {
+    val statusInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val daily = state.today
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
+            .padding(top = statusInset + 16.dp, bottom = 130.dp),
     ) {
-        SectionHeader("Activity", subtitle = "Today and the past week")
-
-        val daily = state.today
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            val stepsProgress = ((daily?.steps ?: 0L) / 10_000f).coerceAtLeast(0f)
-            val calProgress = ((daily?.activeCalories ?: 0.0) / 500.0).toFloat().coerceAtLeast(0f)
-            val exerciseProgress = ((daily?.exerciseMinutes ?: 0L) / 30f).coerceAtLeast(0f)
-            ActivityRings(
-                rings = listOf(
-                    ActivityRing(stepsProgress, ActivityGreen),
-                    ActivityRing(calProgress, WarmPeach),
-                    ActivityRing(exerciseProgress, HeartRed),
-                ),
-                size = 180.dp,
+        Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+            Text(
+                "Activity".uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Column(
-                modifier = Modifier.padding(start = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Today and the past week",
+                style = MaterialTheme.typography.headlineLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+        }
+        Spacer(Modifier.height(24.dp))
+        GlassCard(
+            modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth(),
+            tint = ActivityGreen,
+        ) {
+            Text(
+                "Goals".uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(20.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Stat("Steps", "${daily?.steps ?: 0}", ActivityGreen)
-                Stat("Active kcal", "${(daily?.activeCalories ?: 0.0).toInt()}", WarmPeach)
-                Stat("Move min", "${daily?.exerciseMinutes ?: 0}", HeartRed)
+                ArcGauge(
+                    progress = ((daily?.steps ?: 0L) / 10_000f),
+                    label = "Steps",
+                    value = compact(daily?.steps ?: 0L),
+                    target = "of 10k",
+                    color = ActivityGreen,
+                    diameter = 132.dp,
+                )
+                ArcGauge(
+                    progress = ((daily?.totalCalories ?: 0.0) / 2_500.0).toFloat(),
+                    label = "Calories",
+                    value = "%,d".format((daily?.totalCalories ?: 0.0).toInt()),
+                    target = "of 2.5k",
+                    color = WarmPeach,
+                    diameter = 132.dp,
+                )
+                ArcGauge(
+                    progress = ((daily?.exerciseMinutes ?: 0L) / 30f),
+                    label = "Move",
+                    value = (daily?.exerciseMinutes ?: 0L).toString(),
+                    target = "of 30 min",
+                    color = HeartRed,
+                    diameter = 132.dp,
+                )
             }
         }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            MetricCard(
-                label = "Distance",
-                value = "%.2f".format((state.today?.distanceMeters ?: 0.0) / 1000.0),
-                unit = "km",
-                accent = ActivityGreen,
-                modifier = Modifier.weight(1f),
+        Spacer(Modifier.height(16.dp))
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            StatTile(
+                "Distance",
+                "%.2f".format((daily?.distanceMeters ?: 0.0) / 1000.0),
+                "km",
+                ActivityGreen,
+                Modifier.weight(1f),
             )
-            MetricCard(
-                label = "Floors",
-                value = (state.today?.floorsClimbed ?: 0.0).toInt().toString(),
-                accent = WarmPeach,
-                modifier = Modifier.weight(1f),
+            StatTile(
+                "Floors",
+                (daily?.floorsClimbed ?: 0.0).toInt().toString(),
+                null,
+                WarmPeach,
+                Modifier.weight(1f),
             )
         }
-
-        SectionHeader("Last 7 days")
-        WeeklyBars(state.recent)
+        Spacer(Modifier.height(20.dp))
+        GlassCard(
+            modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth(),
+            tint = ActivityGreen,
+        ) {
+            Text(
+                "Last 7 days".uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(16.dp))
+            WeeklyBars(state.recent)
+        }
     }
 }
 
 @Composable
-private fun Stat(label: String, value: String, color: Color) {
-    Column {
-        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = color)
-        Text(value, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
+private fun StatTile(label: String, value: String, unit: String?, accent: Color, modifier: Modifier = Modifier) {
+    GlassCard(modifier = modifier, tint = accent, contentPadding = 16.dp) {
+        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = accent)
+        Spacer(Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(value, style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.onBackground)
+            if (unit != null) {
+                Text(" $unit", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            }
+        }
     }
 }
 
 @Composable
 private fun WeeklyBars(days: List<DailySummary>) {
     val max = (days.maxOfOrNull { it.steps } ?: 1L).coerceAtLeast(1L)
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.fillMaxWidth(),
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(140.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Bottom,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(160.dp)
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Bottom,
-        ) {
-            days.reversed().forEach { day ->
-                val ratio = (day.steps.toFloat() / max).coerceIn(0.05f, 1f)
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Bottom,
+        days.reversed().forEach { day ->
+            val ratio = (day.steps.toFloat() / max).coerceIn(0.04f, 1f)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Bottom,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(22.dp)
+                        .height((110 * ratio).dp)
+                        .clip(RoundedCornerShape(11.dp)),
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .width(20.dp)
-                            .height((110 * ratio).dp)
-                            .clip(RoundedCornerShape(8.dp))
-                    ) {
-                        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-                            drawRect(color = ActivityGreen)
-                        }
+                    Canvas(Modifier.fillMaxSize()) {
+                        drawRoundRect(
+                            color = ActivityGreen,
+                            cornerRadius = CornerRadius(size.width / 2f, size.width / 2f),
+                        )
                     }
-                    Text(
-                        text = day.date.format(DateTimeFormatter.ofPattern("EE", Locale.getDefault())).take(2),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 6.dp),
-                    )
                 }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = day.date.format(DateTimeFormatter.ofPattern("EE", Locale.getDefault())).take(2),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
+}
+
+private fun compact(n: Long): String = when {
+    n >= 10_000 -> "%.1fk".format(n / 1000.0)
+    n >= 1_000 -> "%,d".format(n)
+    else -> n.toString()
 }
