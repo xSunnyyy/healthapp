@@ -13,7 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bedtime
-import androidx.compose.material.icons.outlined.DirectionsRun
+import androidx.compose.material.icons.automirrored.outlined.DirectionsRun
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.MonitorHeart
 import androidx.compose.material.icons.outlined.SelfImprovement
@@ -146,7 +146,7 @@ private fun chips(state: HomeState): List<ChipMetric> {
             accent = SleepBlue,
         ),
         ChipMetric(
-            icon = Icons.Outlined.DirectionsRun,
+            icon = Icons.AutoMirrored.Outlined.DirectionsRun,
             label = "Activity",
             value = daily?.steps?.let { abbreviate(it) } ?: "—",
             accent = ActivityGreen,
