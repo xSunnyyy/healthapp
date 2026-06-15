@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Soft cool halo behind the V -->
+    <path
+        android:fillColor="#1A5680FF"
+        android:pathData="
+            M 54 30
+            m -32 0
+            a 32 32 0 1 0 64 0
+            a 32 32 0 1 0 -64 0 Z" />
+
+    <!-- Italic V — thick filled outline -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="
+            M 30 30
+            L 40 30
+            L 56 74
+            L 74 30
+            L 84 30
+            L 64 82
+            L 50 82
+            Z" />
+
+    <!-- Crimson pulse line through the midriff of the V (EKG glyph) -->
+    <path
+        android:strokeColor="#FF5A6E"
+        android:strokeWidth="3.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="
+            M 24 60
+            L 38 60
+            L 42 52
+            L 48 70
+            L 54 56
+            L 60 64
+            L 68 60
+            L 84 60" />
+</vector>
