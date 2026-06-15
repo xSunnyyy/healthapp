@@ -9,11 +9,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,7 +28,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.sunny.healthapp.domain.model.SleepSegment
 import com.sunny.healthapp.domain.model.SleepStage
 import com.sunny.healthapp.domain.model.SleepSummary
 import com.sunny.healthapp.ui.theme.Accent
@@ -50,15 +50,15 @@ private fun stageColor(stage: SleepStage): Color = when (stage) {
 }
 
 /**
- * Sleep stages as a single horizontal "ribbon" of color spanning the night,
- * with time-of-night labels above and a tidy proportion list below. Reads at
- * a glance: dark blue = deep, blue = light, lavender = REM, red = awake.
+ * Four independent stage tracks (AWAKE / REM / LIGHT / DEEP) so each stage's
+ * timing is legible on its own. Row label on the left, time axis at the top,
+ * and a tidy breakdown list below.
  */
 @Composable
 fun SleepStagesBar(
     sleep: SleepSummary,
     modifier: Modifier = Modifier,
-    ribbonHeight: Dp = 28.dp,
+    trackHeight: Dp = 28.dp,
 ) {
     val segments = sleep.segments
     val anim by animateFloatAsState(
@@ -89,48 +89,74 @@ fun SleepStagesBar(
         val totalMs = (endMs - originMs).coerceAtLeast(1L)
         val zone = ZoneId.systemDefault()
         val timeFmt = DateTimeFormatter.ofPattern("h:mm a")
+        val rows = listOf(SleepStage.Awake, SleepStage.REM, SleepStage.Light, SleepStage.Deep)
+        val labelWidth = 56.dp
 
-        // Time axis
+        // Time axis with start/end labels aligned to the chart edges
         Row(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = timeFmt.format(segments.first().start.atZone(zone)),
-                style = MaterialTheme.typography.labelSmall,
-                color = TextMuted,
-            )
-            Spacer(Modifier.weight(1f))
-            Text(
-                text = timeFmt.format(segments.last().end.atZone(zone)),
-                style = MaterialTheme.typography.labelSmall,
-                color = TextMuted,
-            )
-        }
-        Spacer(Modifier.height(10.dp))
-
-        // The ribbon itself
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(ribbonHeight)
-                .clip(RoundedCornerShape(ribbonHeight / 2)),
-        ) {
-            Canvas(modifier = Modifier.fillMaxWidth().height(ribbonHeight)) {
-                segments.forEach { seg ->
-                    val startX = ((seg.start.toEpochMilli() - originMs).toFloat() / totalMs) * size.width
-                    val endX = ((seg.end.toEpochMilli() - originMs).toFloat() / totalMs) * size.width * anim
-                    val drawEndX = endX.coerceAtMost(size.width)
-                    if (drawEndX <= startX) return@forEach
-                    drawRect(
-                        color = stageColor(seg.stage),
-                        topLeft = Offset(startX, 0f),
-                        size = Size(drawEndX - startX, size.height),
+            Spacer(Modifier.width(labelWidth))
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = timeFmt.format(segments.first().start.atZone(zone)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextMuted,
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        text = timeFmt.format(segments.last().end.atZone(zone)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextMuted,
                     )
                 }
             }
         }
+        Spacer(Modifier.height(12.dp))
+
+        // Per-stage tracks
+        rows.forEachIndexed { index, stage ->
+            Row(
+                modifier = Modifier.fillMaxWidth().height(trackHeight),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stage.name.uppercase(),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = stageColor(stage),
+                    modifier = Modifier.width(labelWidth),
+                )
+                Canvas(modifier = Modifier.fillMaxWidth().fillMaxHeight()) {
+                    // Faint baseline
+                    val cy = size.height / 2f
+                    drawLine(
+                        color = Color.White.copy(alpha = 0.05f),
+                        start = Offset(0f, cy),
+                        end = Offset(size.width, cy),
+                        strokeWidth = 1f,
+                    )
+                    // Bars for this stage only
+                    val barH = (size.height * 0.55f)
+                    segments.filter { it.stage == stage }.forEach { seg ->
+                        val startX = ((seg.start.toEpochMilli() - originMs).toFloat() / totalMs) * size.width
+                        val endX = ((seg.end.toEpochMilli() - originMs).toFloat() / totalMs) * size.width * anim
+                        val drawEndX = endX.coerceAtMost(size.width)
+                        if (drawEndX <= startX) return@forEach
+                        val width = (drawEndX - startX).coerceAtLeast(3f)
+                        drawRoundRect(
+                            color = stageColor(stage),
+                            topLeft = Offset(startX, cy - barH / 2f),
+                            size = Size(width, barH),
+                            cornerRadius = CornerRadius(barH / 2f, barH / 2f),
+                        )
+                    }
+                }
+            }
+            if (index != rows.lastIndex) Spacer(Modifier.height(6.dp))
+        }
 
         Spacer(Modifier.height(20.dp))
 
-        // Stage breakdown — sourced from SleepSummary so it matches the rest of the screen.
+        // Breakdown list sourced from SleepSummary so all numbers agree.
         val durationsByStage = linkedMapOf(
             SleepStage.Deep to sleep.deep,
             SleepStage.REM to sleep.rem,

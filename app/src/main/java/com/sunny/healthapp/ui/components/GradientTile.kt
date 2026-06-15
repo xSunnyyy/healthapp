@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -26,18 +27,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sunny.healthapp.ui.theme.Ink850
-import com.sunny.healthapp.ui.theme.TextMuted
 import com.sunny.healthapp.ui.theme.TextSecondary
 
 /**
- * Glassmorphic stat tile. Three layers from back to front:
- *   1. Dark glass surface (translucent Ink850 + subtle white lift)
- *   2. Soft accent-color bloom at the top, fading to transparent ~40%
- *   3. Hairline gradient border around the whole shape
- *
- * A tiny accent-tinted ring of light sits in the top-right corner as the
- * only colored identifier. Big numeral in the center, tiny mono small-caps
- * label at the top, delta micro-line at the bottom.
+ * Tall capsule stat tile. Pure glass surface with a faint top-anchored
+ * accent bloom, fully rounded vertical pill shape so they stand out from
+ * the rest of the editorial dark theme. Just label + value, no delta line.
  */
 @Composable
 fun GradientTile(
@@ -49,68 +44,78 @@ fun GradientTile(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
 ) {
+    @Suppress("UNUSED_PARAMETER") val _delta = delta
+    @Suppress("UNUSED_PARAMETER") val _glowEnd = glowEnd
     val accent = glowStart
-    val shape = RoundedCornerShape(28.dp)
+    val shape = RoundedCornerShape(48.dp)
+
     Box(
         modifier = modifier
             .clip(shape)
+            // Layered glass: solid translucent base + subtle vertical lift
             .background(Ink850.copy(alpha = 0.55f))
-            // soft white lift gradient — the glass
             .background(
                 Brush.verticalGradient(
-                    0.0f to Color.White.copy(alpha = 0.08f),
-                    0.55f to Color.White.copy(alpha = 0.02f),
+                    0.0f to Color.White.copy(alpha = 0.10f),
+                    0.5f to Color.White.copy(alpha = 0.02f),
                     1.0f to Color.White.copy(alpha = 0.0f),
                 )
             )
-            // accent bloom anchored at the top, fading by ~40% down
+            // Accent bloom anchored at the top, fading by ~50% down
             .background(
                 Brush.verticalGradient(
-                    0.0f to accent.copy(alpha = 0.18f),
+                    0.0f to accent.copy(alpha = 0.28f),
                     0.45f to Color.Transparent,
                     1.0f to Color.Transparent,
                 )
             )
+            // Soft accent halo at the bottom too — gives the capsule depth
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(accent.copy(alpha = 0.10f), Color.Transparent),
+                    center = Offset(Float.POSITIVE_INFINITY / 2f, Float.POSITIVE_INFINITY),
+                    radius = 400f,
+                )
+            )
             .border(
-                width = 0.7.dp,
-                brush = Brush.linearGradient(
+                width = 0.8.dp,
+                brush = Brush.verticalGradient(
                     0.0f to Color.White.copy(alpha = 0.32f),
-                    0.5f to Color.White.copy(alpha = 0.06f),
+                    0.5f to Color.White.copy(alpha = 0.08f),
                     1.0f to Color.White.copy(alpha = 0.02f),
                 ),
                 shape = shape,
             )
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
     ) {
-        // Top-right accent ring (the only colored identifier)
-        AccentRing(
-            color = accent,
+        // Top: small-caps label + tiny accent ring stacked
+        androidx.compose.foundation.layout.Column(
             modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 14.dp, end = 14.dp),
-        )
+                .align(Alignment.TopCenter)
+                .padding(top = 22.dp)
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            AccentDot(color = accent)
+            androidx.compose.foundation.layout.Spacer(Modifier.height(10.dp))
+            Text(
+                text = label.uppercase(),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 10.sp,
+                    letterSpacing = 1.8.sp,
+                ),
+                color = TextSecondary,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
 
-        // Label small-caps top-left
-        Text(
-            text = label.uppercase(),
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontSize = 10.sp,
-                letterSpacing = 1.6.sp,
-            ),
-            color = TextSecondary,
-            maxLines = 1,
-            softWrap = false,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(start = 18.dp, top = 18.dp),
-        )
-
-        // Big value centered both axes
+        // Center: BIG numeral
         Text(
             text = value,
             style = MaterialTheme.typography.headlineLarge.copy(
-                fontSize = 32.sp,
+                fontSize = 30.sp,
                 fontWeight = FontWeight.Light,
                 letterSpacing = (-1).sp,
             ),
@@ -124,36 +129,19 @@ fun GradientTile(
                 .padding(horizontal = 6.dp)
                 .fillMaxWidth(),
         )
-
-        // Delta micro-line at the bottom, centered
-        Text(
-            text = delta ?: " ",
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-            color = TextMuted,
-            maxLines = 1,
-            softWrap = false,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 14.dp, start = 12.dp, end = 12.dp)
-                .fillMaxWidth(),
-        )
     }
 }
 
 @Composable
-private fun AccentRing(color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(10.dp)) {
-        // Outer faint halo
+private fun AccentDot(color: Color) {
+    Canvas(modifier = Modifier.size(8.dp)) {
         drawCircle(
-            color = color.copy(alpha = 0.20f),
+            color = color.copy(alpha = 0.22f),
             radius = size.minDimension / 2f,
         )
-        // Solid inner dot
         drawCircle(
             color = color,
-            radius = size.minDimension / 3.2f,
+            radius = size.minDimension / 3f,
         )
     }
 }
@@ -164,10 +152,10 @@ fun GradientTileRow(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth().height(146.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = modifier.fillMaxWidth().height(170.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        tiles.forEach { tile -> tile(Modifier.weight(1f).height(146.dp)) }
+        tiles.forEach { tile -> tile(Modifier.weight(1f).height(170.dp)) }
     }
 }
