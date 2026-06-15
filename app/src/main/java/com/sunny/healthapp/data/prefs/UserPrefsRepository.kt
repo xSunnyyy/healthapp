@@ -22,7 +22,7 @@ class UserPrefsRepository(context: Context) {
             stepsGoal = p[STEPS_GOAL] ?: 10_000,
             caloriesGoal = p[CALORIES_GOAL] ?: 2_500,
             activeMinutesGoal = p[ACTIVE_MIN_GOAL] ?: 30,
-            distanceGoalKm = p[DISTANCE_GOAL_KM] ?: 5.0f,
+            distanceGoalMiles = p[DISTANCE_GOAL_MILES] ?: 3.0f,
             preferredOrigin = p[PREFERRED_ORIGIN],
         )
     }
@@ -33,7 +33,7 @@ class UserPrefsRepository(context: Context) {
     suspend fun setStepsGoal(value: Int) = store.edit { it[STEPS_GOAL] = value }
     suspend fun setCaloriesGoal(value: Int) = store.edit { it[CALORIES_GOAL] = value }
     suspend fun setActiveMinutesGoal(value: Int) = store.edit { it[ACTIVE_MIN_GOAL] = value }
-    suspend fun setDistanceGoalKm(value: Float) = store.edit { it[DISTANCE_GOAL_KM] = value }
+    suspend fun setDistanceGoalMiles(value: Float) = store.edit { it[DISTANCE_GOAL_MILES] = value }
     suspend fun setPreferredOrigin(value: String?) = store.edit {
         if (value == null) it.remove(PREFERRED_ORIGIN) else it[PREFERRED_ORIGIN] = value
     }
@@ -43,7 +43,7 @@ class UserPrefsRepository(context: Context) {
         val STEPS_GOAL = intPreferencesKey("steps_goal")
         val CALORIES_GOAL = intPreferencesKey("calories_goal")
         val ACTIVE_MIN_GOAL = intPreferencesKey("active_min_goal")
-        val DISTANCE_GOAL_KM = floatPreferencesKey("distance_goal_km")
+        val DISTANCE_GOAL_MILES = floatPreferencesKey("distance_goal_miles")
         val PREFERRED_ORIGIN = stringPreferencesKey("preferred_origin")
     }
 }

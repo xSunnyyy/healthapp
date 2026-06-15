@@ -43,7 +43,7 @@ class SettingsViewModel(
     fun setStepsGoal(value: Int) = viewModelScope.launch { prefsRepo.setStepsGoal(value) }
     fun setCaloriesGoal(value: Int) = viewModelScope.launch { prefsRepo.setCaloriesGoal(value) }
     fun setActiveMinutesGoal(value: Int) = viewModelScope.launch { prefsRepo.setActiveMinutesGoal(value) }
-    fun setDistanceGoalKm(value: Float) = viewModelScope.launch { prefsRepo.setDistanceGoalKm(value) }
+    fun setDistanceGoalMiles(value: Float) = viewModelScope.launch { prefsRepo.setDistanceGoalMiles(value) }
     fun setPreferredOrigin(value: String?) = viewModelScope.launch {
         prefsRepo.setPreferredOrigin(value)
         app.triggerManualSync(force = false)

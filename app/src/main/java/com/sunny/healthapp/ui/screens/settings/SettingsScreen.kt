@@ -157,8 +157,8 @@ fun SettingsScreen(onBack: () -> Unit) {
                     editing = EditTarget.ActiveMinutes(state.prefs.activeMinutesGoal)
                 }
                 Divider()
-                GoalRow("Distance", "%.1f km".format(state.prefs.distanceGoalKm), Accent) {
-                    editing = EditTarget.Distance(state.prefs.distanceGoalKm)
+                GoalRow("Distance", "%.1f mi".format(state.prefs.distanceGoalMiles), Accent) {
+                    editing = EditTarget.Distance(state.prefs.distanceGoalMiles)
                 }
             }
         }
@@ -214,7 +214,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                     is EditTarget.Steps -> vm.setStepsGoal((value.toIntOrNull() ?: target.value).coerceAtLeast(1))
                     is EditTarget.Calories -> vm.setCaloriesGoal((value.toIntOrNull() ?: target.value).coerceAtLeast(1))
                     is EditTarget.ActiveMinutes -> vm.setActiveMinutesGoal((value.toIntOrNull() ?: target.value).coerceAtLeast(1))
-                    is EditTarget.Distance -> vm.setDistanceGoalKm((value.toFloatOrNull() ?: target.value).coerceAtLeast(0.1f))
+                    is EditTarget.Distance -> vm.setDistanceGoalMiles((value.toFloatOrNull() ?: target.value).coerceAtLeast(0.1f))
                 }
                 editing = null
             }
@@ -292,7 +292,7 @@ private sealed class EditTarget(val title: String, val keyboard: KeyboardType, v
     data class Steps(val value: Int) : EditTarget("Daily steps goal", KeyboardType.Number, value.toString())
     data class Calories(val value: Int) : EditTarget("Daily calories goal (kcal)", KeyboardType.Number, value.toString())
     data class ActiveMinutes(val value: Int) : EditTarget("Daily active minutes goal", KeyboardType.Number, value.toString())
-    data class Distance(val value: Float) : EditTarget("Daily distance goal (km)", KeyboardType.Decimal, value.toString())
+    data class Distance(val value: Float) : EditTarget("Daily distance goal (mi)", KeyboardType.Decimal, value.toString())
 }
 
 @Composable

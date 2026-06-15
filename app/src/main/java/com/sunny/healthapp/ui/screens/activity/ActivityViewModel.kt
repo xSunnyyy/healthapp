@@ -20,6 +20,11 @@ data class ActivityState(
     val selected: DailySummary? = null,
     val previousDay: DailySummary? = null,
     val recent: List<DailySummary> = emptyList(),
+    // Goals come from UserPrefs so Settings edits are reflected here live.
+    val stepsGoal: Int = 10_000,
+    val caloriesGoal: Int = 2_500,
+    val activeMinutesGoal: Int = 30,
+    val distanceGoalMiles: Float = 3.0f,
 )
 
 class ActivityViewModel(
@@ -46,6 +51,16 @@ class ActivityViewModel(
                 }
             }
         }
+        viewModelScope.launch {
+            app.prefs.prefs.collect { p ->
+                _state.value = _state.value.copy(
+                    stepsGoal = p.stepsGoal,
+                    caloriesGoal = p.caloriesGoal,
+                    activeMinutesGoal = p.activeMinutesGoal,
+                    distanceGoalMiles = p.distanceGoalMiles,
+                )
+            }
+        }
     }
 
     fun setDate(date: LocalDate) {
@@ -61,12 +76,10 @@ class ActivityViewModel(
             _state.value = _state.value.copy(loading = true, date = date)
             val selected = runCatching { repo.dailySummary(date) }.getOrNull()
             val prev = runCatching { repo.dailySummary(date.minusDays(1)) }.getOrNull()
-            // Past 7 days ending at the selected date so the weekly chart shifts
-            // with the selection.
             val recent = (6 downTo 0).mapNotNull { offset ->
                 runCatching { repo.dailySummary(date.minusDays(offset.toLong())) }.getOrNull()
             }
-            _state.value = ActivityState(
+            _state.value = _state.value.copy(
                 loading = false,
                 date = date,
                 selected = selected,
