@@ -160,30 +160,3 @@ fun StatTileRow(
     }
 }
 
-// Back-compat shim — keep existing callers compiling while we migrate.
-@Suppress("UNUSED_PARAMETER")
-@Composable
-fun GradientTile(
-    label: String,
-    value: String,
-    delta: String? = null,
-    glowStart: Color,
-    glowEnd: Color,
-    modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null,
-) {
-    StatTile(
-        icon = androidx.compose.material.icons.Icons.Outlined.Circle,
-        label = label,
-        value = value,
-        accent = glowStart,
-        modifier = modifier,
-        onClick = onClick,
-    )
-}
-
-@Composable
-fun GradientTileRow(
-    tiles: List<@Composable (Modifier) -> Unit>,
-    modifier: Modifier = Modifier,
-) = StatTileRow(tiles, modifier)
