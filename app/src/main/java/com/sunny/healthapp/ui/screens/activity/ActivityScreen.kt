@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sunny.healthapp.HealthApp
@@ -173,7 +174,12 @@ private fun Content(
                             (daily?.totalCalories ?: 0.0).toLong(),
                             (prev?.totalCalories ?: 0.0).toLong(),
                         )
-                        StatColumn(calDelta ?: "—", "vs ${prevLabel(state.date)}", MintGlow, Modifier.weight(1f))
+                        StatColumn(
+                            calDelta ?: "—",
+                            "vs ${prevLabel(state.date)}",
+                            MintGlow,
+                            Modifier.weight(1f),
+                        )
                         StatColumn(
                             "%,d".format((daily?.totalCalories ?: 0.0).toInt()),
                             "Total burned",
@@ -191,7 +197,7 @@ private fun Content(
                         )
                     }
                     Spacer(Modifier.height(18.dp))
-                    WeeklyCalorieBars(state)
+                    WeeklyCalorieBars(state, onSelectDate)
                     Spacer(Modifier.height(14.dp))
                     Text(
                         "Total calories burned each day",
@@ -286,8 +292,8 @@ private fun stepDelta(now: Long?, then: Long?): Pair<String?, Color> {
     val pct = ((now - then).toDouble() / then * 100).toInt()
     return when {
         pct == 0 -> "On par" to TextSecondary
-        pct > 0 -> "+$pct% vs prev" to MintGlow
-        else -> "$pct% vs prev" to Crimson
+        pct > 0 -> "+$pct%" to MintGlow
+        else -> "$pct%" to Crimson
     }
 }
 
@@ -306,7 +312,7 @@ private fun rangeSubtitle(steps: Long): String = when {
 }
 
 @Composable
-private fun WeeklyCalorieBars(state: ActivityState) {
+private fun WeeklyCalorieBars(state: ActivityState, onSelectDate: (LocalDate) -> Unit) {
     val maxVal = (state.recent.maxOfOrNull { it.totalCalories } ?: 1.0).coerceAtLeast(1.0)
     Row(
         modifier = Modifier
@@ -322,6 +328,10 @@ private fun WeeklyCalorieBars(state: ActivityState) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Bottom,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { onSelectDate(day.date) }
+                    .padding(horizontal = 2.dp),
             ) {
                 Box(
                     modifier = Modifier
@@ -364,14 +374,31 @@ private fun StatColumn(
 ) {
     Column(modifier = modifier) {
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(value, style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp),
+                color = TextPrimary,
+                maxLines = 1,
+                softWrap = false,
+            )
             if (unit != null) {
                 Spacer(Modifier.width(3.dp))
-                Text(unit, style = MaterialTheme.typography.labelSmall, color = TextSecondary, modifier = Modifier.padding(bottom = 5.dp))
+                Text(
+                    text = unit,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                    color = TextSecondary,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                )
             }
         }
         Spacer(Modifier.height(2.dp))
-        Text(label, style = MaterialTheme.typography.labelSmall, color = TextMuted)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+            color = TextMuted,
+            maxLines = 1,
+            softWrap = false,
+        )
     }
 }
 

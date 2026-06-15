@@ -91,14 +91,27 @@ class ReadinessViewModel(
             val restingHr = repo.dailySummary(LocalDate.now()).restingHeartRate
 
             val totalCount = bpms.size.coerceAtLeast(1)
-            val restingCount = bpms.count { it < 60 }
-            val normalCount = bpms.count { it in 60..99 }
-            val elevatedCount = bpms.count { it in 100..129 }
-            val highCount = bpms.count { it >= 130 }
-            val pctR = (restingCount * 100) / totalCount
-            val pctN = (normalCount * 100) / totalCount
-            val pctE = (elevatedCount * 100) / totalCount
-            val pctH = (highCount * 100) / totalCount
+            val counts = intArrayOf(
+                bpms.count { it < 60 },
+                bpms.count { it in 60..99 },
+                bpms.count { it in 100..129 },
+                bpms.count { it >= 130 },
+            )
+            // Largest-remainder method so the four percentages always sum to 100.
+            val rawPercents = counts.map { it * 100.0 / totalCount }
+            val floored = rawPercents.map { it.toInt() }
+            val deficit = (100 - floored.sum()).coerceAtLeast(0)
+            val getTopRemainders = rawPercents
+                .mapIndexed { i, p -> i to (p - floored[i]) }
+                .sortedByDescending { it.second }
+                .take(deficit)
+                .map { it.first }
+                .toSet()
+            val finalPct = floored.mapIndexed { i, v -> if (i in getTopRemainders) v + 1 else v }
+            val pctR = finalPct[0]
+            val pctN = finalPct[1]
+            val pctE = finalPct[2]
+            val pctH = finalPct[3]
 
             // Downsample for chart
             val (chartVals, chartLabels) = downsample(samples, period, zone)
