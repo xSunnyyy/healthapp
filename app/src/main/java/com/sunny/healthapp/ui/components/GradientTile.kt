@@ -33,12 +33,10 @@ import com.sunny.healthapp.ui.theme.Ink800
 import com.sunny.healthapp.ui.theme.TextPrimary
 import com.sunny.healthapp.ui.theme.TextSecondary
 
-enum class TileChart { Bars, Line, None }
-
 /**
  * Clean dark stat card. No gradient fill — just a single ink surface with a
  * hairline edge. Layout: icon + label (top), big value + unit, accent-tinted
- * status, then a small chart (bars or sparkline) pinned to the bottom.
+ * status, then any small chart (composable slot) pinned to the bottom.
  */
 @Composable
 fun StatTile(
@@ -48,9 +46,7 @@ fun StatTile(
     unit: String? = null,
     status: String? = null,
     accent: Color,
-    chartValues: List<Float> = emptyList(),
-    chart: TileChart = TileChart.Bars,
-    chartHighlightIndex: Int? = null,
+    chart: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
 ) {
@@ -125,23 +121,7 @@ fun StatTile(
                 )
             }
             Spacer(Modifier.weight(1f))
-            // Bottom: mini chart
-            if (chartValues.isNotEmpty() && chart != TileChart.None) {
-                when (chart) {
-                    TileChart.Bars -> MiniBars(
-                        values = chartValues,
-                        color = accent,
-                        height = 30.dp,
-                        highlightIndex = chartHighlightIndex,
-                    )
-                    TileChart.Line -> MiniSparkline(
-                        values = chartValues,
-                        color = accent,
-                        height = 30.dp,
-                    )
-                    TileChart.None -> Unit
-                }
-            }
+            if (chart != null) chart()
         }
     }
 }

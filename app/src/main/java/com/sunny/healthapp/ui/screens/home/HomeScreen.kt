@@ -44,12 +44,14 @@ import com.sunny.healthapp.ui.components.BarChart7Day
 import com.sunny.healthapp.ui.components.BarPoint
 import com.sunny.healthapp.ui.components.DateScrubber
 import com.sunny.healthapp.ui.components.EditorialHeader
+import com.sunny.healthapp.ui.components.MiniArea
+import com.sunny.healthapp.ui.components.MiniBars
+import com.sunny.healthapp.ui.components.MiniSleepStrip
 import com.sunny.healthapp.ui.components.MiniSparkline
 import com.sunny.healthapp.ui.components.Panel
 import com.sunny.healthapp.ui.components.StaggeredEnter
 import com.sunny.healthapp.ui.components.StatTile
 import com.sunny.healthapp.ui.components.StatTileRow
-import com.sunny.healthapp.ui.components.TileChart
 import com.sunny.healthapp.ui.screens.PermissionGate
 import com.sunny.healthapp.ui.theme.Accent
 import com.sunny.healthapp.ui.theme.Crimson
@@ -197,7 +199,6 @@ private fun TopMetricRow(state: HomeState, onNavigate: (String) -> Unit) {
     val sleepMin = state.sleep?.total?.toMinutes()
     val stepsBars = state.weeklySteps.map { it.second.toFloat() }
     val calBars = state.weeklyCalories.map { it.second.toFloat() }
-    val sleepBars = state.weeklySleepMin.map { it.second.toFloat() }
     val hiIdx = state.weeklySteps.indexOfFirst { it.first == state.date }.takeIf { it >= 0 }
 
     StatTileRow(
@@ -209,9 +210,15 @@ private fun TopMetricRow(state: HomeState, onNavigate: (String) -> Unit) {
                     value = "%,d".format(daily?.steps ?: 0L),
                     status = stepsStatus(daily?.steps ?: 0L),
                     accent = Accent,
-                    chartValues = stepsBars,
-                    chart = TileChart.Bars,
-                    chartHighlightIndex = hiIdx,
+                    chart = {
+                        // Vertical bars — daily totals over the past week
+                        MiniBars(
+                            values = stepsBars,
+                            color = Accent,
+                            height = 30.dp,
+                            highlightIndex = hiIdx,
+                        )
+                    },
                     modifier = mod,
                     onClick = { onNavigate("activity") },
                 )
@@ -224,9 +231,10 @@ private fun TopMetricRow(state: HomeState, onNavigate: (String) -> Unit) {
                     unit = "kcal",
                     status = caloriesStatus((daily?.totalCalories ?: 0.0).toInt()),
                     accent = Sunflare,
-                    chartValues = calBars,
-                    chart = TileChart.Bars,
-                    chartHighlightIndex = hiIdx,
+                    chart = {
+                        // Filled smooth area — emphasises the trend
+                        MiniArea(values = calBars, color = Sunflare, height = 30.dp)
+                    },
                     modifier = mod,
                     onClick = { onNavigate("activity") },
                 )
@@ -238,9 +246,10 @@ private fun TopMetricRow(state: HomeState, onNavigate: (String) -> Unit) {
                     value = sleepMin?.let { formatSleep(it) } ?: "—",
                     status = sleepStatus(sleepMin),
                     accent = Lavender,
-                    chartValues = sleepBars,
-                    chart = TileChart.Bars,
-                    chartHighlightIndex = hiIdx,
+                    chart = {
+                        // Last night's stage breakdown as a colored ribbon
+                        MiniSleepStrip(sleep = state.sleep, height = 18.dp)
+                    },
                     modifier = mod,
                     onClick = { onNavigate("sleep") },
                 )
@@ -250,28 +259,30 @@ private fun TopMetricRow(state: HomeState, onNavigate: (String) -> Unit) {
 }
 
 private fun stepsStatus(steps: Long): String = when {
-    steps >= 10_000 -> "Active"
-    steps >= 5_000 -> "Moving"
-    steps > 0 -> "Resting"
-    else -> "No data"
+    steps <= 0L -> "No data"
+    steps >= 10_000 -> "Goal hit"
+    steps >= 7_000 -> "Active"
+    steps >= 3_000 -> "Moving"
+    else -> "Light day"
 }
 
 private fun caloriesStatus(cal: Int): String = when {
-    cal >= 2_500 -> "Above avg"
+    cal <= 0 -> "No data"
+    cal >= 2_800 -> "Big day"
+    cal >= 2_200 -> "Active burn"
     cal >= 1_500 -> "On track"
-    cal > 0 -> "Below avg"
-    else -> "No data"
+    else -> "Light day"
 }
 
 private fun sleepStatus(minutes: Long?): String {
     val m = minutes ?: return "No data"
+    if (m <= 0L) return "No data"
     val h = m / 60.0
     return when {
-        h >= 9 -> "Long"
+        h >= 9.5 -> "Long"
         h >= 7 -> "Optimal"
         h >= 6 -> "Short"
-        h > 0 -> "Very short"
-        else -> "No data"
+        else -> "Very short"
     }
 }
 
