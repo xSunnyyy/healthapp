@@ -233,6 +233,25 @@ fun MiniSparkline(
     )
 }
 
+/** Filled area sparkline — same line as MiniSparkline but with a gradient fill below. */
+@Composable
+fun MiniArea(
+    values: List<Float>,
+    color: Color,
+    modifier: Modifier = Modifier,
+    height: Dp = 36.dp,
+) {
+    val points = values.mapIndexed { i, v -> LinePoint(i.toFloat(), v) }
+    SmoothLineChart(
+        points = points,
+        color = color,
+        modifier = modifier,
+        height = height,
+        fillBelow = true,
+        drawDot = false,
+    )
+}
+
 /** Tight little bar chart for in-tile use: thin pills, no labels or axes. */
 @Composable
 fun MiniBars(
