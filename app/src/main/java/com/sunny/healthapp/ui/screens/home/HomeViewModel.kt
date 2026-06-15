@@ -24,6 +24,8 @@ data class HomeState(
     val sleep: SleepSummary? = null,
     val readiness: ReadinessSummary? = null,
     val weeklySteps: List<Pair<LocalDate, Long>> = emptyList(),
+    val weeklyCalories: List<Pair<LocalDate, Double>> = emptyList(),
+    val weeklySleepMin: List<Pair<LocalDate, Long>> = emptyList(),
 )
 
 class HomeViewModel(
@@ -81,9 +83,13 @@ class HomeViewModel(
             }.getOrNull()
             val weekly = (6 downTo 0).map { offset ->
                 val d = date.minusDays(offset.toLong())
-                val steps = runCatching { repo.dailySummary(d).steps }.getOrDefault(0L)
-                d to steps
+                val ds = runCatching { repo.dailySummary(d) }.getOrNull()
+                val sl = runCatching { repo.sleepOnDate(d) }.getOrNull()
+                Triple(d, ds, sl)
             }
+            val weeklySteps = weekly.map { (d, ds, _) -> d to (ds?.steps ?: 0L) }
+            val weeklyCal = weekly.map { (d, ds, _) -> d to (ds?.totalCalories ?: 0.0) }
+            val weeklySleep = weekly.map { (d, _, sl) -> d to (sl?.total?.toMinutes() ?: 0L) }
             _state.value = HomeState(
                 loading = false,
                 date = date,
@@ -91,7 +97,9 @@ class HomeViewModel(
                 previousDaily = previous,
                 sleep = sleep,
                 readiness = readiness,
-                weeklySteps = weekly,
+                weeklySteps = weeklySteps,
+                weeklyCalories = weeklyCal,
+                weeklySleepMin = weeklySleep,
             )
         }
     }
