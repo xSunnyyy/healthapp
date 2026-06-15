@@ -135,13 +135,12 @@ private fun Content(state: ReadinessState) {
                         }
                     }
                     Spacer(Modifier.height(18.dp))
-                    val points = listOf(
-                        72f, 74f, 78f, 86f, 92f, 88f, 81f, 76f, 84f, 92f, 100f, 96f, 88f, 80f, 78f, 76f
-                    ).mapIndexed { i, v -> LinePoint(i.toFloat(), v) }
+                    val (values, axis) = chartDataFor(period)
+                    val points = values.mapIndexed { i, v -> LinePoint(i.toFloat(), v) }
                     SmoothLineChart(points = points, color = Crimson, height = 130.dp)
                     Spacer(Modifier.height(6.dp))
                     Row(modifier = Modifier.fillMaxWidth()) {
-                        listOf("6AM", "12PM", "3PM", "6PM", "Now").forEach {
+                        axis.forEach {
                             Text(
                                 it,
                                 style = MaterialTheme.typography.labelSmall,
@@ -172,11 +171,11 @@ private fun Content(state: ReadinessState) {
                 Panel(modifier = Modifier.fillMaxWidth()) {
                     Text("Heart Rate Zones", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
                     Spacer(Modifier.height(16.dp))
-                    ZoneBar("Normal", 60, MintGlow)
+                    ZoneBar("Normal", "60–100 bpm", 60, MintGlow)
                     Spacer(Modifier.height(14.dp))
-                    ZoneBar("Elevated", 19, Sunflare)
+                    ZoneBar("Elevated", "100–130 bpm", 19, Sunflare)
                     Spacer(Modifier.height(14.dp))
-                    ZoneBar("High", 21, Crimson)
+                    ZoneBar("High", "130+ bpm", 21, Crimson)
                 }
             }
         }
@@ -196,6 +195,18 @@ private fun MiniStat(label: String, value: String, sub: String, modifier: Modifi
         Spacer(Modifier.height(2.dp))
         Text(sub, style = MaterialTheme.typography.labelSmall, color = TextMuted)
     }
+}
+
+private fun chartDataFor(period: Period): Pair<List<Float>, List<String>> = when (period) {
+    Period.D -> listOf(72f, 74f, 78f, 86f, 92f, 88f, 81f, 76f, 84f, 92f, 100f, 96f, 88f, 80f, 78f, 76f) to
+        listOf("6AM", "12PM", "3PM", "6PM", "Now")
+    Period.W -> listOf(76f, 82f, 79f, 88f, 91f, 84f, 78f) to listOf("M", "T", "W", "T", "F", "S", "S")
+    Period.M -> List(30) { (70 + (Math.sin(it * 0.4) * 12 + Math.random() * 5)).toFloat() } to
+        listOf("Week 1", "Week 2", "Week 3", "Week 4")
+    Period.SixM -> List(24) { (70 + Math.sin(it * 0.3) * 10).toFloat() } to
+        listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun")
+    Period.Y -> List(12) { (72 + Math.cos(it * 0.5) * 8).toFloat() } to
+        listOf("Q1", "Q2", "Q3", "Q4")
 }
 
 @Composable

@@ -123,7 +123,7 @@ private fun HomeContent(state: HomeState, vm: HomeViewModel, onNavigate: (String
 
         StaggeredEnter(index = 3) { m ->
             Box(modifier = m.padding(horizontal = 20.dp)) {
-                StepsPanel(state)
+                StepsPanel(state) { date -> vm.goToDate(date) }
             }
         }
 
@@ -190,7 +190,7 @@ private fun TopMetricRow(state: HomeState, onNavigate: (String) -> Unit) {
         tiles = listOf(
             { mod ->
                 GradientTile(
-                    label = "Steps\ntoday",
+                    label = "Steps",
                     value = "%,d".format(daily?.steps ?: 0L),
                     delta = stepsDelta,
                     glowStart = TileCoolStart,
@@ -213,8 +213,8 @@ private fun TopMetricRow(state: HomeState, onNavigate: (String) -> Unit) {
             { mod ->
                 GradientTile(
                     label = "Sleep",
-                    value = sleepMin?.let { formatSleep(it) } ?: "—",
-                    delta = state.sleep?.efficiencyPct?.let { "$it% efficient" },
+                    value = sleepMin?.let { formatSleepShort(it) } ?: "—",
+                    delta = state.sleep?.efficiencyPct?.let { "$it% eff" },
                     glowStart = TileSoftStart,
                     glowEnd = TileSoftEnd,
                     modifier = mod,
@@ -226,7 +226,7 @@ private fun TopMetricRow(state: HomeState, onNavigate: (String) -> Unit) {
 }
 
 @Composable
-private fun StepsPanel(state: HomeState) {
+private fun StepsPanel(state: HomeState, onTap: (java.time.LocalDate) -> Unit) {
     val daily = state.daily
     val steps = daily?.steps ?: 0L
     val goal = 10_000L
@@ -278,6 +278,9 @@ private fun StepsPanel(state: HomeState) {
             points = points,
             highlightIndex = highlight,
             color = Accent,
+            onBarClick = { idx ->
+                state.weeklySteps.getOrNull(idx)?.first?.let { d -> onTap(d) }
+            },
         )
     }
 }

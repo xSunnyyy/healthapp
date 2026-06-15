@@ -171,17 +171,14 @@ private fun Content(state: ActivityState) {
                             unit = "kcal",
                         )
                     }
-                    Spacer(Modifier.height(18.dp))
-                    StackedActivityBars(state)
-                    Spacer(Modifier.height(10.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    ) {
-                        LegendDot("Walking 65%", Accent)
-                        LegendDot("Running 11%", Crimson)
-                        LegendDot("Workout 24%", Lavender)
-                    }
+                    Spacer(Modifier.height(20.dp))
+                    WeeklyCalorieBars(state)
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        "Total calories burned each day",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextMuted,
+                    )
                 }
             }
         }
@@ -226,7 +223,7 @@ private fun Content(state: ActivityState) {
 }
 
 @Composable
-private fun StackedActivityBars(state: ActivityState) {
+private fun WeeklyCalorieBars(state: ActivityState) {
     val maxVal = (state.recent.maxOfOrNull { it.totalCalories } ?: 1.0).coerceAtLeast(1.0)
     Row(
         modifier = Modifier
@@ -235,53 +232,29 @@ private fun StackedActivityBars(state: ActivityState) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Bottom,
     ) {
-        // Show last 7 days reversed (oldest left)
         val days = state.recent.reversed()
         days.forEach { day ->
-            val total = (day.totalCalories / maxVal).toFloat().coerceIn(0.05f, 1f)
-            val walking = total * 0.65f
-            val running = total * 0.11f
-            val workout = total * 0.24f
+            val ratio = (day.totalCalories / maxVal).toFloat().coerceIn(0.05f, 1f)
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Bottom,
             ) {
                 Box(
                     modifier = Modifier
-                        .width(28.dp)
+                        .width(26.dp)
                         .height(110.dp),
                     contentAlignment = Alignment.BottomCenter,
                 ) {
                     Canvas(
-                        modifier = Modifier.fillMaxWidth().height(110.dp),
+                        modifier = Modifier.fillMaxWidth().height(110.dp * ratio),
                     ) {
-                        val cw = size.width
-                        val ch = size.height
-                        val totalH = ch * total
-                        val workH = ch * workout
-                        val runH = ch * running
-                        val walkH = ch * walking
-                        val baseY = ch
-                        val r = cw / 2f
-                        // walking at bottom
+                        val r = size.width / 2f
                         drawRoundRect(
-                            color = Accent,
-                            topLeft = Offset(0f, baseY - walkH),
-                            size = Size(cw, walkH),
-                            cornerRadius = CornerRadius(0f, 0f),
-                        )
-                        // running on top
-                        drawRoundRect(
-                            color = Crimson,
-                            topLeft = Offset(0f, baseY - walkH - runH),
-                            size = Size(cw, runH),
-                            cornerRadius = CornerRadius(0f, 0f),
-                        )
-                        // workout on top
-                        drawRoundRect(
-                            color = Lavender,
-                            topLeft = Offset(0f, baseY - totalH),
-                            size = Size(cw, workH),
+                            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                0.0f to Accent,
+                                1.0f to Accent.copy(alpha = 0.45f),
+                            ),
+                            size = Size(size.width, size.height),
                             cornerRadius = CornerRadius(r, r),
                         )
                     }

@@ -3,6 +3,7 @@ package com.sunny.healthapp.ui.components
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +40,7 @@ fun BarChart7Day(
     modifier: Modifier = Modifier,
     height: Dp = 160.dp,
     showLabels: Boolean = true,
+    onBarClick: ((Int) -> Unit)? = null,
 ) {
     val max = (points.maxOfOrNull { it.value } ?: 1f).coerceAtLeast(1f)
     val anim by animateFloatAsState(
@@ -56,9 +58,13 @@ fun BarChart7Day(
             points.forEachIndexed { i, p ->
                 val ratio = (p.value / max).coerceIn(0.04f, 1f)
                 val isHi = highlightIndex == i
+                val baseMod = Modifier
+                    .weight(1f)
+                    .height(height)
+                val clickMod = if (onBarClick != null) baseMod.clickable { onBarClick(i) } else baseMod
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.weight(1f),
+                    modifier = clickMod,
                     verticalArrangement = Arrangement.Bottom,
                 ) {
                     Canvas(

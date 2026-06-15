@@ -27,6 +27,7 @@ import com.sunny.healthapp.ui.theme.TextSecondary
 @Composable
 fun ZoneBar(
     label: String,
+    range: String,
     percent: Int,
     color: Color,
     modifier: Modifier = Modifier,
@@ -67,12 +68,18 @@ fun ZoneBar(
         Spacer(Modifier.size(14.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = TextPrimary,
-                    modifier = Modifier.weight(1f),
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = TextPrimary,
+                    )
+                    Text(
+                        text = range,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = com.sunny.healthapp.ui.theme.TextMuted,
+                    )
+                }
                 Text(
                     text = "$percent%",
                     style = MaterialTheme.typography.titleMedium,
