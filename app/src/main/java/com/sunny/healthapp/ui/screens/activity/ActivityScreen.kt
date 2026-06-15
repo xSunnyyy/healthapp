@@ -46,9 +46,11 @@ import com.sunny.healthapp.HealthApp
 import com.sunny.healthapp.domain.model.DailySummary
 import com.sunny.healthapp.ui.components.EditorialHeader
 import com.sunny.healthapp.ui.components.Panel
+import com.sunny.healthapp.ui.components.RefreshableContent
 import com.sunny.healthapp.ui.components.RingProgress
 import com.sunny.healthapp.ui.components.StaggeredEnter
 import com.sunny.healthapp.ui.components.SyncDot
+import com.sunny.healthapp.ui.components.TodayChip
 import com.sunny.healthapp.ui.components.WeekStrip
 import com.sunny.healthapp.ui.screens.PermissionGate
 import com.sunny.healthapp.ui.theme.Accent
@@ -90,40 +92,59 @@ private fun Content(
     val statusInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val daily = state.selected
     val prev = state.previousDay
+    val today = LocalDate.now()
+    val isToday = state.date == today
+    val isRefreshing = sync is com.sunny.healthapp.data.sync.SyncStatus.Syncing
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(top = statusInset + 12.dp, bottom = 130.dp),
+    RefreshableContent(
+        isRefreshing = isRefreshing,
+        onRefresh = onSync,
+        modifier = Modifier.fillMaxSize(),
     ) {
-        StaggeredEnter(0) { m ->
-            EditorialHeader(
-                eyebrow = "Progress tracking",
-                title = dateHeadline(state.date),
-                modifier = m,
-            )
-        }
-        Spacer(Modifier.height(14.dp))
-
-        StaggeredEnter(1) { m ->
-            Row(
-                modifier = m.padding(horizontal = 20.dp).fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                WeekStrip(
-                    selected = state.date,
-                    onSelect = onSelectDate,
-                    activeDays = state.recent.map { it.date }.toSet(),
-                    modifier = Modifier.weight(1f),
-                )
-                SyncDot(status = sync, onClick = onSync)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(top = statusInset + 12.dp, bottom = 130.dp),
+        ) {
+            // Top-right header strip: TodayChip (only when off-today) + small SyncDot
+            StaggeredEnter(0) { m ->
+                Row(
+                    modifier = m.padding(horizontal = 20.dp).fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (!isToday) {
+                        TodayChip(onClick = { onSelectDate(today) })
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    SyncDot(status = sync, onClick = onSync, size = 30.dp)
+                }
             }
-        }
-        Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(6.dp))
 
-        StaggeredEnter(2) { m ->
+            StaggeredEnter(1) { m ->
+                EditorialHeader(
+                    eyebrow = "Progress tracking",
+                    title = dateHeadline(state.date),
+                    modifier = m,
+                )
+            }
+            Spacer(Modifier.height(14.dp))
+
+            StaggeredEnter(2) { m ->
+                Box(modifier = m.padding(horizontal = 20.dp)) {
+                    WeekStrip(
+                        selected = state.date,
+                        onSelect = onSelectDate,
+                        activeDays = state.recent.map { it.date }.toSet(),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+            Spacer(Modifier.height(20.dp))
+
+        StaggeredEnter(3) { m ->
             Box(modifier = m.padding(horizontal = 20.dp)) {
                 Panel(modifier = Modifier.fillMaxWidth()) {
                     Text("Goal Progress", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
@@ -165,7 +186,7 @@ private fun Content(
 
         Spacer(Modifier.height(16.dp))
 
-        StaggeredEnter(3) { m ->
+        StaggeredEnter(4) { m ->
             Box(modifier = m.padding(horizontal = 20.dp)) {
                 Panel(modifier = Modifier.fillMaxWidth()) {
                     Text("Calories burned", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
@@ -211,7 +232,7 @@ private fun Content(
 
         Spacer(Modifier.height(16.dp))
 
-        StaggeredEnter(4) { m ->
+        StaggeredEnter(5) { m ->
             Box(modifier = m.padding(horizontal = 20.dp)) {
                 Panel(modifier = Modifier.fillMaxWidth()) {
                     Text(
@@ -257,6 +278,7 @@ private fun Content(
                     )
                 }
             }
+        }
         }
     }
 }

@@ -49,9 +49,11 @@ import com.sunny.healthapp.ui.components.MiniBars
 import com.sunny.healthapp.ui.components.MiniSleepStrip
 import com.sunny.healthapp.ui.components.MiniSparkline
 import com.sunny.healthapp.ui.components.Panel
+import com.sunny.healthapp.ui.components.RefreshableContent
 import com.sunny.healthapp.ui.components.StaggeredEnter
 import com.sunny.healthapp.ui.components.StatTile
 import com.sunny.healthapp.ui.components.StatTileRow
+import com.sunny.healthapp.ui.components.SyncDot
 import com.sunny.healthapp.ui.screens.PermissionGate
 import com.sunny.healthapp.ui.theme.Accent
 import com.sunny.healthapp.ui.theme.Crimson
@@ -82,6 +84,13 @@ private fun HomeContent(
     onNavigate: (String) -> Unit,
 ) {
     val statusInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val isRefreshing = syncStatus is com.sunny.healthapp.data.sync.SyncStatus.Syncing
+
+    RefreshableContent(
+        isRefreshing = isRefreshing,
+        onRefresh = { vm.manualSync() },
+        modifier = Modifier.fillMaxSize(),
+    ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -101,9 +110,10 @@ private fun HomeContent(
                     onJumpToToday = { vm.goToDate(java.time.LocalDate.now()) },
                     modifier = Modifier.weight(1f),
                 )
-                com.sunny.healthapp.ui.components.SyncDot(
+                SyncDot(
                     status = syncStatus,
                     onClick = { vm.manualSync() },
+                    size = 30.dp,
                 )
             }
         }
@@ -171,6 +181,7 @@ private fun HomeContent(
                 ReadinessPanel(state)
             }
         }
+    }
     }
 }
 

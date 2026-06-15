@@ -44,6 +44,7 @@ import com.sunny.healthapp.ui.components.EditorialHeader
 import com.sunny.healthapp.ui.components.Panel
 import com.sunny.healthapp.ui.components.Period
 import com.sunny.healthapp.ui.components.PeriodTabs
+import com.sunny.healthapp.ui.components.RefreshableContent
 import com.sunny.healthapp.ui.components.SleepStageInfoSheet
 import com.sunny.healthapp.ui.components.SleepStagesBar
 import com.sunny.healthapp.ui.components.StaggeredEnter
@@ -86,9 +87,15 @@ private fun Content(
 ) {
     var stageToExplain by remember { mutableStateOf<com.sunny.healthapp.domain.model.SleepStage?>(null) }
     val statusInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val isRefreshing = sync is com.sunny.healthapp.data.sync.SyncStatus.Syncing
     stageToExplain?.let { stage ->
         SleepStageInfoSheet(stage = stage, onDismiss = { stageToExplain = null })
     }
+    RefreshableContent(
+        isRefreshing = isRefreshing,
+        onRefresh = onSync,
+        modifier = Modifier.fillMaxSize(),
+    ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -114,7 +121,7 @@ private fun Content(
                     onSelect = onSetPeriod,
                     modifier = Modifier.weight(1f),
                 )
-                SyncDot(status = sync, onClick = onSync)
+                SyncDot(status = sync, onClick = onSync, size = 30.dp)
             }
         }
         Spacer(Modifier.height(18.dp))
@@ -123,6 +130,7 @@ private fun Content(
             Period.D -> DayContent(state.singleSession, onStageClick = { stageToExplain = it })
             else -> AggregateContent(state)
         }
+    }
     }
 }
 

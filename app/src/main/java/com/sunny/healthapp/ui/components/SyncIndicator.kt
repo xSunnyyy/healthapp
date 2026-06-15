@@ -111,8 +111,9 @@ fun SyncDot(
     status: SyncStatus,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    size: androidx.compose.ui.unit.Dp = 32.dp,
 ) {
-    // Even more compact: just a single circular icon button.
+    // Compact circular sync button. While Syncing the icon spins continuously.
     val (icon, tint) = when (status) {
         is SyncStatus.Syncing -> Icons.Outlined.Sync to Accent
         is SyncStatus.Done -> Icons.Outlined.Check to MintGlow
@@ -132,11 +133,12 @@ fun SyncDot(
         )
         v
     } else 0f
+    val iconSize = (size.value * 0.42f).dp.coerceAtLeast(12.dp)
     Box(
         modifier = modifier
-            .size(44.dp)
+            .size(size)
             .clip(CircleShape)
-            .background(Ink800.copy(alpha = 0.7f))
+            .background(Ink800.copy(alpha = 0.55f))
             .border(0.6.dp, EdgeSoft, CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -145,7 +147,7 @@ fun SyncDot(
             imageVector = icon,
             contentDescription = "Sync",
             tint = tint,
-            modifier = Modifier.size(18.dp).rotate(rotation),
+            modifier = Modifier.size(iconSize).rotate(rotation),
         )
     }
 }
