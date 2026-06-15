@@ -177,8 +177,14 @@ class HealthSyncManager(
             )
             val sessions = hc.read(SleepSessionRecord::class, fullRange)
             sessions.forEach { s ->
+                // Sum precise Durations, then convert to minutes once at the end —
+                // prevents the per-segment truncation that caused 1h54m vs 1h56m mismatches.
                 val byStage = s.stages.groupBy { stageName(it.stage) }
-                    .mapValues { (_, list) -> list.sumOf { Duration.between(it.startTime, it.endTime).toMinutes() } }
+                    .mapValues { (_, list) ->
+                        list.fold(Duration.ZERO) { a, st ->
+                            a + Duration.between(st.startTime, st.endTime)
+                        }.toMinutes()
+                    }
                 val deep = byStage["DEEP"] ?: 0
                 val light = byStage["LIGHT"] ?: 0
                 val rem = byStage["REM"] ?: 0

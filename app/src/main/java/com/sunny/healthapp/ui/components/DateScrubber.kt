@@ -38,6 +38,7 @@ fun DateScrubber(
     date: LocalDate,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
+    onJumpToToday: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val today = LocalDate.now()
@@ -46,7 +47,7 @@ fun DateScrubber(
     val label = when (date) {
         today -> "Today"
         today.minusDays(1) -> "Yesterday"
-        else -> date.format(DateTimeFormatter.ofPattern("EEEE, MMM d", Locale.getDefault()))
+        else -> date.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault()))
     }
 
     Row(
@@ -67,23 +68,30 @@ fun DateScrubber(
             modifier = Modifier
                 .weight(1f)
                 .clip(RoundedCornerShape(22.dp))
+                .clickable(enabled = !isToday, onClick = onJumpToToday)
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleMedium,
-                color = TextPrimary,
-            )
+            androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = TextPrimary,
+                )
+                if (!isToday) {
+                    Text(
+                        text = "tap to return today",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextSecondary,
+                    )
+                }
+            }
         }
         ScrubberArrow(
             icon = Icons.AutoMirrored.Outlined.ArrowForward,
             enabled = canGoForward,
             onClick = { if (canGoForward) onNext() },
         )
-        if (!isToday) {
-            // optional faint reset chip
-        }
     }
 }
 

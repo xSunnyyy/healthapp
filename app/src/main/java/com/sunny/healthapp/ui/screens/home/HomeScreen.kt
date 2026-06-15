@@ -92,6 +92,7 @@ private fun HomeContent(
                     date = state.date,
                     onPrevious = { vm.previous() },
                     onNext = { vm.next() },
+                    onJumpToToday = { vm.goToDate(java.time.LocalDate.now()) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(8.dp))
@@ -227,7 +228,7 @@ private fun TopMetricRow(state: HomeState, onNavigate: (String) -> Unit) {
             { mod ->
                 GradientTile(
                     label = "Sleep",
-                    value = sleepMin?.let { formatSleepShort(it) } ?: "—",
+                    value = sleepMin?.let { formatSleep(it) } ?: "—",
                     delta = state.sleep?.efficiencyPct?.let { "$it% eff" },
                     glowStart = TileSoftStart,
                     glowEnd = TileSoftEnd,

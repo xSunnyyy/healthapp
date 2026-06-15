@@ -22,15 +22,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sunny.healthapp.HealthApp
@@ -41,6 +39,7 @@ import com.sunny.healthapp.ui.components.Period
 import com.sunny.healthapp.ui.components.PeriodTabs
 import com.sunny.healthapp.ui.components.SmoothLineChart
 import com.sunny.healthapp.ui.components.StaggeredEnter
+import com.sunny.healthapp.ui.components.SyncIndicator
 import com.sunny.healthapp.ui.components.ZoneBar
 import com.sunny.healthapp.ui.screens.PermissionGate
 import com.sunny.healthapp.ui.theme.Accent
@@ -50,6 +49,10 @@ import com.sunny.healthapp.ui.theme.Sunflare
 import com.sunny.healthapp.ui.theme.TextMuted
 import com.sunny.healthapp.ui.theme.TextPrimary
 import com.sunny.healthapp.ui.theme.TextSecondary
+import java.time.Duration
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun ReadinessScreen() {
@@ -57,21 +60,25 @@ fun ReadinessScreen() {
         val app = LocalContext.current.applicationContext as HealthApp
         val vm: ReadinessViewModel = viewModel(factory = ReadinessViewModel.factory(app))
         val state by vm.state.collectAsStateWithLifecycle()
-        if (state.loading) {
+        val sync by vm.syncStatus.collectAsStateWithLifecycle()
+        if (state.loading && state.latestHr == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Accent, strokeWidth = 2.dp)
             }
         } else {
-            Content(state)
+            Content(state, sync, onSetPeriod = vm::setPeriod, onSync = vm::manualSync)
         }
     }
 }
 
 @Composable
-private fun Content(state: ReadinessState) {
+private fun Content(
+    state: ReadinessState,
+    sync: com.sunny.healthapp.data.sync.SyncStatus,
+    onSetPeriod: (Period) -> Unit,
+    onSync: () -> Unit,
+) {
     val statusInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    var period by remember { mutableStateOf(Period.D) }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -85,16 +92,25 @@ private fun Content(state: ReadinessState) {
                 modifier = m,
             )
         }
-        Spacer(Modifier.height(20.dp))
-
+        Spacer(Modifier.height(14.dp))
         StaggeredEnter(1) { m ->
+            Row(
+                modifier = m.padding(horizontal = 20.dp).fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                SyncIndicator(status = sync, onClick = onSync)
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+
+        StaggeredEnter(2) { m ->
             Box(modifier = m.padding(horizontal = 20.dp)) {
-                PeriodTabs(selected = period, onSelect = { period = it })
+                PeriodTabs(selected = state.period, onSelect = onSetPeriod)
             }
         }
         Spacer(Modifier.height(18.dp))
 
-        StaggeredEnter(2) { m ->
+        StaggeredEnter(3) { m ->
             Box(modifier = m.padding(horizontal = 20.dp)) {
                 Panel(modifier = Modifier.fillMaxWidth()) {
                     Row(verticalAlignment = Alignment.Top) {
@@ -103,7 +119,7 @@ private fun Content(state: ReadinessState) {
                             Spacer(Modifier.height(10.dp))
                             Row(verticalAlignment = Alignment.Bottom) {
                                 Text(
-                                    text = "78",
+                                    text = state.latestHr?.toString() ?: "—",
                                     style = MaterialTheme.typography.headlineLarge,
                                     color = TextPrimary,
                                 )
@@ -117,36 +133,59 @@ private fun Content(state: ReadinessState) {
                             }
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                text = "Today, 9:38 AM",
+                                text = state.latestHrTime?.let { friendlyTimestamp(it) } ?: "No samples",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = TextMuted,
                             )
                         }
                         Column(horizontalAlignment = Alignment.End) {
-                            Text("Avg today", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                            Text("Avg ${periodLabel(state.period)}", style = MaterialTheme.typography.labelSmall, color = TextMuted)
                             Spacer(Modifier.height(4.dp))
                             Row(verticalAlignment = Alignment.Bottom) {
-                                Text("94", style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
+                                Text(state.avgHr?.toString() ?: "—", style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
                                 Spacer(Modifier.width(4.dp))
                                 Text("BPM", style = MaterialTheme.typography.labelMedium, color = TextSecondary, modifier = Modifier.padding(bottom = 4.dp))
                             }
                             Spacer(Modifier.height(6.dp))
-                            ElevationBadge(label = "Elevated")
+                            val avg = state.avgHr ?: 0
+                            val badgeLabel = when {
+                                avg == 0 -> null
+                                avg < 100 -> null
+                                avg < 130 -> "Elevated" to Sunflare
+                                else -> "High" to Crimson
+                            }
+                            badgeLabel?.let { (label, color) -> StatusBadge(label, color) }
                         }
                     }
                     Spacer(Modifier.height(18.dp))
-                    val (values, axis) = chartDataFor(period)
-                    val points = values.mapIndexed { i, v -> LinePoint(i.toFloat(), v) }
-                    SmoothLineChart(points = points, color = Crimson, height = 130.dp)
-                    Spacer(Modifier.height(6.dp))
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        axis.forEach {
+                    if (state.chartValues.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(130.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
                             Text(
-                                it,
-                                style = MaterialTheme.typography.labelSmall,
+                                text = "No heart-rate samples for this period yet.",
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = TextMuted,
-                                modifier = Modifier.weight(1f),
                             )
+                        }
+                    } else {
+                        val points = state.chartValues.mapIndexed { i, v -> LinePoint(i.toFloat(), v) }
+                        SmoothLineChart(points = points, color = Crimson, height = 130.dp)
+                        Spacer(Modifier.height(6.dp))
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            state.chartLabels.forEach {
+                                Text(
+                                    it,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = TextMuted,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
                     }
                 }
@@ -154,28 +193,33 @@ private fun Content(state: ReadinessState) {
         }
         Spacer(Modifier.height(14.dp))
 
-        StaggeredEnter(3) { m ->
+        StaggeredEnter(4) { m ->
             Row(
                 modifier = m.padding(horizontal = 20.dp).fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                MiniStat("Average", "84", "Today", Modifier.weight(1f))
-                MiniStat("Resting HR", "62", "30-day avg", Modifier.weight(1f))
-                MiniStat("Max today", "138", "2:14 PM", Modifier.weight(1f))
+                MiniStat("Average", state.avgHr?.toString() ?: "—", periodLabel(state.period), Modifier.weight(1f))
+                MiniStat("Resting", state.restingHr?.toString() ?: "—", "today", Modifier.weight(1f))
+                MiniStat(
+                    "Max",
+                    state.maxHr?.toString() ?: "—",
+                    state.maxHrTime?.let { friendlyTime(it) } ?: periodLabel(state.period),
+                    Modifier.weight(1f),
+                )
             }
         }
         Spacer(Modifier.height(18.dp))
 
-        StaggeredEnter(4) { m ->
+        StaggeredEnter(5) { m ->
             Box(modifier = m.padding(horizontal = 20.dp)) {
                 Panel(modifier = Modifier.fillMaxWidth()) {
                     Text("Heart Rate Zones", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
                     Spacer(Modifier.height(16.dp))
-                    ZoneBar("Normal", "60–100 bpm", 60, MintGlow)
+                    ZoneBar("Normal", "60–100 bpm", state.pctNormal, MintGlow)
                     Spacer(Modifier.height(14.dp))
-                    ZoneBar("Elevated", "100–130 bpm", 19, Sunflare)
+                    ZoneBar("Elevated", "100–130 bpm", state.pctElevated, Sunflare)
                     Spacer(Modifier.height(14.dp))
-                    ZoneBar("High", "130+ bpm", 21, Crimson)
+                    ZoneBar("High", "130+ bpm", state.pctHigh, Crimson)
                 }
             }
         }
@@ -184,43 +228,71 @@ private fun Content(state: ReadinessState) {
 
 @Composable
 private fun MiniStat(label: String, value: String, sub: String, modifier: Modifier = Modifier) {
-    Panel(modifier = modifier, contentPadding = 14.dp, cornerRadius = 22.dp) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = TextMuted)
-        Spacer(Modifier.height(8.dp))
+    Panel(modifier = modifier, contentPadding = 12.dp, cornerRadius = 22.dp) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = TextMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.height(6.dp))
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(value, style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
-            Spacer(Modifier.width(4.dp))
-            Text("BPM", style = MaterialTheme.typography.labelSmall, color = TextSecondary, modifier = Modifier.padding(bottom = 5.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineSmall.copy(fontSize = 24.sp),
+                color = TextPrimary,
+                maxLines = 1,
+                softWrap = false,
+            )
+            Spacer(Modifier.width(3.dp))
+            Text(
+                text = "BPM",
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                color = TextSecondary,
+                modifier = Modifier.padding(bottom = 5.dp),
+            )
         }
         Spacer(Modifier.height(2.dp))
-        Text(sub, style = MaterialTheme.typography.labelSmall, color = TextMuted)
+        Text(
+            text = sub,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+            color = TextMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
-private fun chartDataFor(period: Period): Pair<List<Float>, List<String>> = when (period) {
-    Period.D -> listOf(72f, 74f, 78f, 86f, 92f, 88f, 81f, 76f, 84f, 92f, 100f, 96f, 88f, 80f, 78f, 76f) to
-        listOf("6AM", "12PM", "3PM", "6PM", "Now")
-    Period.W -> listOf(76f, 82f, 79f, 88f, 91f, 84f, 78f) to listOf("M", "T", "W", "T", "F", "S", "S")
-    Period.M -> List(30) { (70 + (Math.sin(it * 0.4) * 12 + Math.random() * 5)).toFloat() } to
-        listOf("Week 1", "Week 2", "Week 3", "Week 4")
-    Period.SixM -> List(24) { (70 + Math.sin(it * 0.3) * 10).toFloat() } to
-        listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun")
-    Period.Y -> List(12) { (72 + Math.cos(it * 0.5) * 8).toFloat() } to
-        listOf("Q1", "Q2", "Q3", "Q4")
-}
-
 @Composable
-private fun ElevationBadge(label: String) {
+private fun StatusBadge(label: String, color: androidx.compose.ui.graphics.Color) {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
-            .background(Sunflare.copy(alpha = 0.18f))
+            .background(color.copy(alpha = 0.18f))
             .padding(horizontal = 10.dp, vertical = 4.dp),
     ) {
-        Text(
-            text = "● $label",
-            style = MaterialTheme.typography.labelSmall,
-            color = Sunflare,
-        )
+        Text("● $label", style = MaterialTheme.typography.labelSmall, color = color)
+    }
+}
+
+private fun periodLabel(p: Period): String = when (p) {
+    Period.D -> "today"
+    Period.W -> "7 days"
+    Period.M -> "30 days"
+    Period.SixM -> "6 months"
+    Period.Y -> "year"
+}
+
+private fun friendlyTime(at: Instant): String =
+    DateTimeFormatter.ofPattern("h:mm a").withZone(ZoneId.systemDefault()).format(at)
+
+private fun friendlyTimestamp(at: Instant): String {
+    val mins = Duration.between(at, Instant.now()).toMinutes()
+    return when {
+        mins < 1 -> "just now"
+        mins < 60 -> "$mins min ago"
+        mins < 1440 -> "${mins / 60}h ago, ${friendlyTime(at)}"
+        else -> friendlyTime(at)
     }
 }

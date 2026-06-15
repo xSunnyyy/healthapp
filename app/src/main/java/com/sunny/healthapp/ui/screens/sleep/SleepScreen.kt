@@ -140,28 +140,8 @@ private fun Content(sleep: SleepSummary?) {
                     Panel(modifier = Modifier.fillMaxWidth()) {
                         Text("Stages", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
                         Spacer(Modifier.height(14.dp))
-                        SleepStagesBar(segments = sleep.segments)
+                        SleepStagesBar(sleep = sleep)
                     }
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-            StaggeredEnter(4) { m ->
-                Row(
-                    modifier = m.padding(horizontal = 20.dp).fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    StageStat("Deep", sleep.deep, LavenderDeep, Modifier.weight(1f))
-                    StageStat("REM", sleep.rem, Lavender, Modifier.weight(1f))
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            StaggeredEnter(5) { m ->
-                Row(
-                    modifier = m.padding(horizontal = 20.dp).fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    StageStat("Light", sleep.light, Accent, Modifier.weight(1f))
-                    StageStat("Awake", sleep.awake, Crimson, Modifier.weight(1f))
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -178,19 +158,6 @@ private fun Content(sleep: SleepSummary?) {
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun StageStat(label: String, duration: Duration, accent: Color, modifier: Modifier = Modifier) {
-    Panel(modifier = modifier, contentPadding = 16.dp) {
-        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = accent)
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = formatDuration(duration.toMinutes()),
-            style = MaterialTheme.typography.headlineSmall,
-            color = TextPrimary,
-        )
     }
 }
 
