@@ -1,6 +1,6 @@
 # Vitals — Android Health Dashboard
 
-An Oura-style health dashboard for Android. Reads from **Health Connect**, so any
+An simple-style health dashboard for Android. Reads from **Health Connect**, so any
 device that writes there (including Fitbit) shows up automatically: sleep stages,
 heart rate, HRV, SpO₂, respiratory rate, steps, calories, distance, exercise.
 
