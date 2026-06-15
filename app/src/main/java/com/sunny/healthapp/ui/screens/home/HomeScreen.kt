@@ -67,12 +67,18 @@ fun HomeScreen(onNavigate: (String) -> Unit = {}) {
         val app = LocalContext.current.applicationContext as HealthApp
         val vm: HomeViewModel = viewModel(factory = HomeViewModel.factory(app))
         val state by vm.state.collectAsStateWithLifecycle()
-        HomeContent(state, vm, onNavigate)
+        val syncStatus by vm.syncStatus.collectAsStateWithLifecycle()
+        HomeContent(state, syncStatus, vm, onNavigate)
     }
 }
 
 @Composable
-private fun HomeContent(state: HomeState, vm: HomeViewModel, onNavigate: (String) -> Unit) {
+private fun HomeContent(
+    state: HomeState,
+    syncStatus: com.sunny.healthapp.data.sync.SyncStatus,
+    vm: HomeViewModel,
+    onNavigate: (String) -> Unit,
+) {
     val statusInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     Column(
         modifier = Modifier
@@ -81,16 +87,24 @@ private fun HomeContent(state: HomeState, vm: HomeViewModel, onNavigate: (String
             .padding(top = statusInset + 12.dp, bottom = 130.dp),
     ) {
         StaggeredEnter(index = 0) { m ->
-            Row(
-                modifier = m.padding(horizontal = 20.dp).fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            Column(modifier = m.padding(horizontal = 20.dp).fillMaxWidth()) {
                 DateScrubber(
                     date = state.date,
                     onPrevious = { vm.previous() },
                     onNext = { vm.next() },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                 )
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    com.sunny.healthapp.ui.components.SyncIndicator(
+                        status = syncStatus,
+                        onClick = { vm.manualSync() },
+                    )
+                }
             }
         }
 
@@ -456,8 +470,8 @@ private fun deltaPct(current: Double?, previous: Double?): String? {
     if (current == null || previous == null || previous <= 0.0) return null
     val pct = ((current - previous) / previous * 100).toInt()
     return when {
-        pct == 0 -> "On par"
-        pct > 0 -> "+$pct% vs prev"
-        else -> "$pct% vs prev"
+        pct == 0 -> "on par"
+        pct > 0 -> "+$pct% prev"
+        else -> "$pct% prev"
     }
 }

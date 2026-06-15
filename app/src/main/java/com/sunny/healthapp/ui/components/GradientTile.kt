@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -66,38 +66,42 @@ fun GradientTile(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.SpaceBetween,
-            horizontalAlignment = Alignment.CenterHorizontally,
+            horizontalAlignment = Alignment.Start,
         ) {
-            // Label pinned to top, single line
             Text(
                 text = label,
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp),
                 color = Color.White.copy(alpha = 0.92f),
                 maxLines = 1,
+                softWrap = false,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center,
             )
-            // Value centered, auto-fit single line
+            // Value — single line forced, scaled down if needed via fontSize
             Text(
                 text = value,
-                style = MaterialTheme.typography.headlineSmall.copy(fontSize = 24.sp),
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Light,
+                ),
                 color = Color.White,
                 maxLines = 1,
-                overflow = TextOverflow.Visible,
-                textAlign = TextAlign.Center,
+                softWrap = false,
+                overflow = TextOverflow.Clip,
+                textAlign = TextAlign.Start,
+                modifier = Modifier.fillMaxWidth(),
             )
-            // Delta pinned to bottom
+            // Delta — single line, ellipsized if too wide
             Text(
                 text = delta ?: " ",
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                 color = Color.White.copy(alpha = 0.72f),
                 maxLines = 1,
+                softWrap = false,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center,
             )
         }
     }
@@ -109,10 +113,10 @@ fun GradientTileRow(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth().height(132.dp),
+        modifier = modifier.fillMaxWidth().height(124.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        tiles.forEach { tile -> tile(Modifier.weight(1f).height(132.dp)) }
+        tiles.forEach { tile -> tile(Modifier.weight(1f).height(124.dp)) }
     }
 }

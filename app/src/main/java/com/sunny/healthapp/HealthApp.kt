@@ -25,7 +25,17 @@ class HealthApp : Application(), Configuration.Provider {
     lateinit var repository: HealthRepository
         private set
 
-    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    fun triggerManualSync() {
+        appScope.launch {
+            try {
+                if (healthConnect.hasAllPermissions()) syncManager.syncAll(force = false)
+            } catch (e: Exception) {
+                Log.w("HealthApp", "Manual sync failed", e)
+            }
+        }
+    }
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()

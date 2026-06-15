@@ -22,10 +22,20 @@ import com.sunny.healthapp.data.db.entities.SleepStageEntity
 import com.sunny.healthapp.data.db.entities.Spo2SampleEntity
 import com.sunny.healthapp.data.db.entities.SyncStateEntity
 import com.sunny.healthapp.data.health.HealthConnectManager
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+
+sealed class SyncStatus {
+    data object Idle : SyncStatus()
+    data class Syncing(val progress: Float = 0f, val message: String = "Syncing") : SyncStatus()
+    data class Done(val at: Instant, val report: SyncReport) : SyncStatus()
+    data class Error(val message: String?) : SyncStatus()
+}
 
 /**
  * Mirrors Health Connect data into the local Room cache.
@@ -36,6 +46,9 @@ class HealthSyncManager(
     private val hc: HealthConnectManager,
     private val db: HealthDatabase,
 ) {
+    private val _status = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
+    val status: StateFlow<SyncStatus> = _status.asStateFlow()
+
     companion object {
         private const val TAG = "HealthSync"
         const val BACKFILL_DAYS = 365L
@@ -44,6 +57,18 @@ class HealthSyncManager(
     }
 
     suspend fun syncAll(force: Boolean = false): SyncReport {
+        _status.value = SyncStatus.Syncing(progress = 0f, message = "Reading Health Connect…")
+        try {
+            val report = doSync(force)
+            _status.value = SyncStatus.Done(Instant.now(), report)
+            return report
+        } catch (e: Exception) {
+            _status.value = SyncStatus.Error(e.message)
+            throw e
+        }
+    }
+
+    private suspend fun doSync(force: Boolean): SyncReport {
         val state = db.syncStateDao().get(META_KEY)
         val now = Instant.now()
         val today = LocalDate.now()
@@ -64,9 +89,19 @@ class HealthSyncManager(
         var hrvWritten = 0
         var spo2Written = 0
 
+        val totalDays = (java.time.temporal.ChronoUnit.DAYS.between(from, today) + 1).toInt().coerceAtLeast(1)
+        var dayIndex = 0
+
         // Per-day summaries — iterate over the range.
         var d = from
         while (!d.isAfter(today)) {
+            dayIndex++
+            if (dayIndex % 5 == 0 || dayIndex == 1) {
+                _status.value = SyncStatus.Syncing(
+                    progress = dayIndex.toFloat() / totalDays.toFloat() * 0.8f,
+                    message = "Syncing day $dayIndex of $totalDays",
+                )
+            }
             val dayStart = d.atStartOfDay(zone).toInstant()
             val dayEnd = d.plusDays(1).atStartOfDay(zone).toInstant()
             val range = TimeRangeFilter.between(dayStart, dayEnd)
@@ -131,6 +166,8 @@ class HealthSyncManager(
 
             d = d.plusDays(1)
         }
+
+        _status.value = SyncStatus.Syncing(progress = 0.85f, message = "Syncing sleep history…")
 
         // Sleep — query the whole window in one shot, store sessions + stages
         try {

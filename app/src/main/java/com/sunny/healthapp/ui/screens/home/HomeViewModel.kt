@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.sunny.healthapp.HealthApp
 import com.sunny.healthapp.data.health.HealthRepository
+import com.sunny.healthapp.data.sync.SyncStatus
 import com.sunny.healthapp.domain.model.DailySummary
 import com.sunny.healthapp.domain.model.ReadinessSummary
 import com.sunny.healthapp.domain.model.SleepSummary
@@ -25,13 +26,32 @@ data class HomeState(
     val weeklySteps: List<Pair<LocalDate, Long>> = emptyList(),
 )
 
-class HomeViewModel(private val repo: HealthRepository) : ViewModel() {
+class HomeViewModel(
+    private val app: HealthApp,
+) : ViewModel() {
+    private val repo: HealthRepository = app.repository
+
     private val _state = MutableStateFlow(HomeState())
     val state: StateFlow<HomeState> = _state.asStateFlow()
 
+    val syncStatus: StateFlow<SyncStatus> = app.syncManager.status
+
     private var currentJob: Job? = null
 
-    init { load(LocalDate.now()) }
+    init {
+        load(LocalDate.now())
+        // Auto-reload whenever a sync completes so the UI catches up to Room.
+        viewModelScope.launch {
+            var wasSyncing = false
+            app.syncManager.status.collect { status ->
+                if (status is SyncStatus.Syncing) wasSyncing = true
+                else if (wasSyncing && status is SyncStatus.Done) {
+                    wasSyncing = false
+                    load(_state.value.date)
+                }
+            }
+        }
+    }
 
     fun goToDate(date: LocalDate) {
         if (date == _state.value.date) return
@@ -43,9 +63,9 @@ class HomeViewModel(private val repo: HealthRepository) : ViewModel() {
         if (!next.isAfter(LocalDate.now())) load(next)
     }
 
-    fun previous() {
-        load(_state.value.date.minusDays(1))
-    }
+    fun previous() = load(_state.value.date.minusDays(1))
+
+    fun manualSync() = app.triggerManualSync()
 
     private fun load(date: LocalDate) {
         currentJob?.cancel()
@@ -54,7 +74,7 @@ class HomeViewModel(private val repo: HealthRepository) : ViewModel() {
             val daily = runCatching { repo.dailySummary(date) }.getOrNull()
             val previous = runCatching { repo.dailySummary(date.minusDays(1)) }.getOrNull()
             val sleep = runCatching {
-                if (date == LocalDate.now()) repo.lastNightSleep() else null
+                if (date == LocalDate.now()) repo.lastNightSleep() else repo.sleepOnDate(date)
             }.getOrNull()
             val readiness = runCatching {
                 if (date == LocalDate.now()) repo.readiness() else null
@@ -80,7 +100,7 @@ class HomeViewModel(private val repo: HealthRepository) : ViewModel() {
         fun factory(app: HealthApp) = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                HomeViewModel(app.repository) as T
+                HomeViewModel(app) as T
         }
     }
 }
