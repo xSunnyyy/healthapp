@@ -20,7 +20,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.sunny.healthapp.domain.model.SleepStage
 import com.sunny.healthapp.ui.theme.Accent
 import com.sunny.healthapp.ui.theme.AccentDeep
@@ -44,10 +49,11 @@ private fun infoFor(stage: SleepStage): StageInfo = when (stage) {
         color = AccentDeep,
         typical = "Typical: 13–23% of the night, ~1–2 hours.",
         why = "The most physically restorative stage. Heart rate and " +
-              "breathing slow to their lowest, the body releases growth hormone, " +
-              "tissue and muscle repair happens, and the immune system rebuilds.",
-        tips = "Boosted by: consistent sleep schedule, cool dark room, and " +
-              "avoiding alcohol within 3 hours of bed.",
+              "breathing slow to their lowest, the body releases growth " +
+              "hormone, tissue and muscle repair happens, and the immune " +
+              "system rebuilds.",
+        tips = "Boosted by a consistent sleep schedule, a cool dark room, " +
+              "and avoiding alcohol within 3 hours of bed.",
     )
     SleepStage.REM -> StageInfo(
         title = "REM sleep",
@@ -57,17 +63,17 @@ private fun infoFor(stage: SleepStage): StageInfo = when (stage) {
               "memory consolidation, learning, emotional regulation, and " +
               "creativity. Comes in cycles roughly every 90 minutes, with " +
               "longer REM blocks toward morning.",
-        tips = "Boosted by: getting enough total sleep, regular bedtime, and " +
-              "limiting caffeine after lunch.",
+        tips = "Get enough total sleep, keep a regular bedtime, and limit " +
+              "caffeine after lunch.",
     )
     SleepStage.Light -> StageInfo(
         title = "Light sleep",
         color = Accent,
         typical = "Typical: 50–60% of the night — the largest single chunk.",
-        why = "The transition layer between waking and deeper sleep. The body " +
-              "still does restorative work here (memory consolidation, lower " +
-              "heart rate, muscle relaxation), and brief micro-wakings during " +
-              "Light are completely normal.",
+        why = "The transition layer between waking and deeper sleep. The " +
+              "body still does restorative work here (memory consolidation, " +
+              "lower heart rate, muscle relaxation), and brief micro-wakings " +
+              "during Light are completely normal.",
         tips = "It's not 'bad' sleep — your body needs a lot of it. Worry " +
               "only if Deep and REM are unusually low.",
     )
@@ -75,12 +81,12 @@ private fun infoFor(stage: SleepStage): StageInfo = when (stage) {
         title = "Awake / restless",
         color = Crimson,
         typical = "Typical: a few minutes scattered across the night.",
-        why = "Brief wake periods are a normal part of healthy sleep — almost " +
-              "everyone wakes briefly between cycles and just doesn't remember. " +
-              "Long stretches of awake time mid-night can point to stress, " +
-              "alcohol, late caffeine, or a room that's too warm.",
-        tips = "Reduce by: dimming lights ~1h before bed, keeping the room " +
-              "cool (~18°C / 65°F), and avoiding screens in bed.",
+        why = "Brief wake periods are a normal part of healthy sleep — " +
+              "almost everyone wakes briefly between cycles and just doesn't " +
+              "remember. Long stretches of awake time mid-night can point to " +
+              "stress, alcohol, late caffeine, or a room that's too warm.",
+        tips = "Dim lights ~1 hour before bed, keep the room cool " +
+              "(~18°C / 65°F), and avoid screens in bed.",
     )
     SleepStage.Unknown -> StageInfo(
         title = "Stage",
@@ -100,6 +106,35 @@ fun SleepStageInfoSheet(
     val info = infoFor(stage)
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    // Override Material3's mono labelMedium / serif italic display with a
+    // single clean sans family for the entire sheet — readability over
+    // editorial flair here.
+    val titleStyle = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 22.sp,
+        lineHeight = 28.sp,
+    )
+    val typicalStyle = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Normal,
+        fontStyle = FontStyle.Italic,
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
+    )
+    val sectionStyle = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 11.sp,
+        letterSpacing = 0.8.sp,
+    )
+    val bodyStyle = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Normal,
+        fontSize = 15.sp,
+        lineHeight = 22.sp,
+    )
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -109,7 +144,6 @@ fun SleepStageInfoSheet(
             Box(
                 modifier = Modifier
                     .padding(top = 8.dp)
-                    .height(4.dp)
                     .size(width = 40.dp, height = 4.dp)
                     .clip(CircleShape)
                     .background(TextSecondary.copy(alpha = 0.4f)),
@@ -119,57 +153,41 @@ fun SleepStageInfoSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 16.dp),
+                .padding(horizontal = 24.dp, vertical = 12.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
-                        .size(12.dp)
+                        .size(14.dp)
                         .clip(CircleShape)
                         .background(info.color),
                 )
-                Spacer(Modifier.size(10.dp))
-                Text(
-                    info.title,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = TextPrimary,
-                )
+                Spacer(Modifier.size(12.dp))
+                Text(info.title, style = titleStyle, color = TextPrimary)
             }
             if (info.typical.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
-                Text(
-                    info.typical,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = info.color,
-                )
+                Text(info.typical, style = typicalStyle, color = info.color)
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(20.dp))
             Text(
-                "Why it matters",
-                style = MaterialTheme.typography.labelSmall,
+                text = "WHY IT MATTERS",
+                style = sectionStyle,
                 color = TextSecondary,
             )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                info.why,
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextPrimary,
-            )
+            Spacer(Modifier.height(6.dp))
+            Text(info.why, style = bodyStyle, color = TextPrimary)
             if (info.tips.isNotEmpty()) {
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(18.dp))
                 Text(
-                    "How to support it",
-                    style = MaterialTheme.typography.labelSmall,
+                    text = "HOW TO SUPPORT IT",
+                    style = sectionStyle,
                     color = TextSecondary,
                 )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    info.tips,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextPrimary,
-                )
+                Spacer(Modifier.height(6.dp))
+                Text(info.tips, style = bodyStyle, color = TextPrimary)
             }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(28.dp))
         }
     }
 }

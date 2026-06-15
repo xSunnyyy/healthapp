@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,9 +28,9 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 
 /**
- * Horizontal strip of the current week with day-letters above and day-numbers below.
- * Selected day = filled circle around the number. Today + days with activity get a
- * faint glow ring above the letter (used as the "fire" replacement in the reference).
+ * Tight horizontal day-strip: M T W T F S S row of letters above day-number
+ * circles. Selected day has a filled white circle; today is highlighted in
+ * the accent color; days with activity get a subtle accent border.
  */
 @Composable
 fun WeekStrip(
@@ -47,6 +46,7 @@ fun WeekStrip(
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         days.forEach { date ->
             DayCell(
@@ -68,47 +68,38 @@ private fun DayCell(
     isActive: Boolean,
     onClick: () -> Unit,
 ) {
+    val numberColor = when {
+        isSelected -> Color.Black
+        isToday -> Accent
+        else -> TextSecondary
+    }
+    val letterColor = when {
+        isSelected -> TextPrimary
+        isToday -> Accent
+        else -> TextMuted
+    }
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .clip(CircleShape)
             .clickable(onClick = onClick)
-            .padding(horizontal = 6.dp, vertical = 4.dp),
+            .padding(horizontal = 2.dp, vertical = 6.dp),
     ) {
         Text(
             text = date.dayOfWeek.name.take(1),
-            style = MaterialTheme.typography.labelMedium,
-            color = when {
-                isSelected -> TextPrimary
-                isToday -> Accent
-                else -> TextSecondary
-            },
+            style = MaterialTheme.typography.labelSmall,
+            color = letterColor,
         )
         Spacer(Modifier.height(6.dp))
-        Box(
-            modifier = Modifier.size(8.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (isActive) {
-                Box(
-                    modifier = Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(Accent.copy(alpha = 0.7f))
-                )
-            }
-        }
-        Spacer(Modifier.height(4.dp))
-        Box(
+        androidx.compose.foundation.layout.Box(
             modifier = Modifier
-                .size(32.dp)
+                .size(34.dp)
                 .clip(CircleShape)
                 .then(
-                    if (isSelected) {
-                        Modifier
-                            .background(Color.White.copy(alpha = 0.95f))
-                    } else {
-                        Modifier.border(0.7.dp, Color.White.copy(alpha = 0.10f), CircleShape)
+                    when {
+                        isSelected -> Modifier.background(Color.White.copy(alpha = 0.95f))
+                        isActive -> Modifier.border(0.8.dp, Accent.copy(alpha = 0.55f), CircleShape)
+                        else -> Modifier.border(0.6.dp, Color.White.copy(alpha = 0.08f), CircleShape)
                     }
                 ),
             contentAlignment = Alignment.Center,
@@ -116,7 +107,7 @@ private fun DayCell(
             Text(
                 text = date.dayOfMonth.toString(),
                 style = MaterialTheme.typography.titleSmall,
-                color = if (isSelected) Color.Black else if (isToday) Accent else TextSecondary,
+                color = numberColor,
             )
         }
     }

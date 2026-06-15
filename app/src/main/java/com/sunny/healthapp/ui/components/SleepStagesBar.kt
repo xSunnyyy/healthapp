@@ -16,6 +16,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -190,7 +193,7 @@ private fun StageRow(
 ) {
     val clickMod = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
     Row(
-        modifier = clickMod.fillMaxWidth(),
+        modifier = clickMod.fillMaxWidth().padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -200,17 +203,22 @@ private fun StageRow(
                 .background(color),
         )
         Spacer(Modifier.size(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
                 text = stage.name.uppercase(),
                 style = MaterialTheme.typography.labelMedium,
                 color = TextSecondary,
             )
             if (onClick != null) {
-                Text(
-                    text = "tap to learn more",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextMuted,
+                Spacer(Modifier.size(6.dp))
+                Icon(
+                    imageVector = Icons.Outlined.Info,
+                    contentDescription = "About ${stage.name}",
+                    tint = TextMuted,
+                    modifier = Modifier.size(14.dp),
                 )
             }
         }
