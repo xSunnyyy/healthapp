@@ -16,15 +16,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.sunny.healthapp.ui.theme.Accent
-import com.sunny.healthapp.ui.theme.Ink800
 
 @Composable
 fun TodayChip(
@@ -56,8 +53,9 @@ fun TodayChip(
 
 /**
  * Wraps content in a Material3 PullToRefreshBox so a user pulling down from
- * the top of any scroll surface triggers [onRefresh]. While [isRefreshing] is
- * true the indicator stays visible.
+ * the top of any scroll surface triggers [onRefresh]. The default progress
+ * indicator is suppressed — we want the SyncDot in the header to be the
+ * single source of visual feedback while syncing, no extra dot at the top.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,21 +65,11 @@ fun RefreshableContent(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
-    val state = rememberPullToRefreshState()
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
-        state = state,
         modifier = modifier,
-        indicator = {
-            PullToRefreshDefaults.Indicator(
-                state = state,
-                isRefreshing = isRefreshing,
-                modifier = Modifier.align(Alignment.TopCenter),
-                color = Accent,
-                containerColor = Ink800,
-            )
-        },
+        indicator = { /* intentionally empty — feedback lives in the SyncDot */ },
         content = content,
     )
 }
