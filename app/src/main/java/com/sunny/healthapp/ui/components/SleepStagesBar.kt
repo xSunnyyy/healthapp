@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.sunny.healthapp.domain.model.SleepSegment
 import com.sunny.healthapp.domain.model.SleepStage
+import com.sunny.healthapp.domain.model.SleepSummary
 import com.sunny.healthapp.ui.theme.Accent
 import com.sunny.healthapp.ui.theme.AccentDeep
 import com.sunny.healthapp.ui.theme.Crimson
@@ -55,10 +56,11 @@ private fun stageColor(stage: SleepStage): Color = when (stage) {
  */
 @Composable
 fun SleepStagesBar(
-    segments: List<SleepSegment>,
+    sleep: SleepSummary,
     modifier: Modifier = Modifier,
     ribbonHeight: Dp = 28.dp,
 ) {
+    val segments = sleep.segments
     val anim by animateFloatAsState(
         targetValue = 1f,
         animationSpec = tween(durationMillis = 950),
@@ -128,15 +130,17 @@ fun SleepStagesBar(
 
         Spacer(Modifier.height(20.dp))
 
-        // Stage breakdown list
-        val byStage = segments.groupBy { it.stage }
-            .mapValues { (_, list) -> list.fold(Duration.ZERO) { a, s -> a + s.duration } }
-        val total = byStage.values.fold(Duration.ZERO) { a, b -> a + b }
-        listOf(SleepStage.Deep, SleepStage.REM, SleepStage.Light, SleepStage.Awake).forEach { stage ->
-            val d = byStage[stage] ?: Duration.ZERO
-            val pct = if (total.isZero) 0
-                else ((d.toMinutes().toDouble() / total.toMinutes()) * 100).toInt()
-            StageRow(label = stage.name, duration = d, percent = pct, color = stageColor(stage))
+        // Stage breakdown — sourced from SleepSummary so it matches the rest of the screen.
+        val durationsByStage = linkedMapOf(
+            SleepStage.Deep to sleep.deep,
+            SleepStage.REM to sleep.rem,
+            SleepStage.Light to sleep.light,
+            SleepStage.Awake to sleep.awake,
+        )
+        val totalMin = durationsByStage.values.sumOf { it.toMinutes() }.coerceAtLeast(1L)
+        durationsByStage.forEach { (stage, dur) ->
+            val pct = ((dur.toMinutes() * 100.0) / totalMin).toInt()
+            StageRow(label = stage.name, duration = dur, percent = pct, color = stageColor(stage))
             if (stage != SleepStage.Awake) Spacer(Modifier.height(8.dp))
         }
     }

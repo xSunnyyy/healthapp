@@ -63,47 +63,49 @@ fun GradientTile(
             )
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
     ) {
-        Column(
+        // Label pinned to top-left
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp),
+            color = Color.White.copy(alpha = 0.92f),
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
-            horizontalAlignment = Alignment.Start,
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp),
-                color = Color.White.copy(alpha = 0.92f),
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            // Value — single line forced, scaled down if needed via fontSize
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Light,
-                ),
-                color = Color.White,
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Clip,
-                textAlign = TextAlign.Start,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            // Delta — single line, ellipsized if too wide
-            Text(
-                text = delta ?: " ",
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                color = Color.White.copy(alpha = 0.72f),
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+                .align(Alignment.TopStart)
+                .padding(start = 14.dp, end = 14.dp, top = 12.dp)
+                .fillMaxWidth(),
+        )
+        // Value perfectly centered
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Light,
+            ),
+            color = Color.White,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(horizontal = 6.dp)
+                .fillMaxWidth(),
+        )
+        // Delta pinned to bottom-left
+        Text(
+            text = delta ?: " ",
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+            color = Color.White.copy(alpha = 0.72f),
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 14.dp, end = 14.dp, bottom = 12.dp)
+                .fillMaxWidth(),
+        )
     }
 }
 

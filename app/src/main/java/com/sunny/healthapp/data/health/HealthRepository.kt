@@ -46,6 +46,10 @@ class HealthRepository(
     suspend fun dailyRange(start: LocalDate, end: LocalDate): List<DailySummary> =
         db.dailySummaryDao().range(start, end).map { it.toDomain() }
 
+    data class HrSample(val time: Instant, val bpm: Int)
+    suspend fun hrSamples(from: Instant, to: Instant): List<HrSample> =
+        db.hrSampleDao().range(from, to).map { HrSample(it.time, it.bpm) }
+
     suspend fun lastNightSleep(zone: ZoneId = ZoneId.systemDefault()): SleepSummary? {
         val s = db.sleepDao().latest() ?: return null
         val stages = db.sleepDao().stagesFor(s.id)
