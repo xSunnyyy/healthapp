@@ -26,6 +26,20 @@ data class HomeState(
     val weeklySteps: List<Pair<LocalDate, Long>> = emptyList(),
     val weeklyCalories: List<Pair<LocalDate, Double>> = emptyList(),
     val weeklySleepMin: List<Pair<LocalDate, Long>> = emptyList(),
+    val insights: WeeklyInsights? = null,
+)
+
+data class WeeklyInsights(
+    val avgSleepMinThisWeek: Long,
+    val avgSleepMinLastWeek: Long?,
+    val sleepDeltaMin: Long?,
+    val stepsGoalHitDays: Int,
+    val stepsGoal: Int,
+    val rhrAvgThisWeek: Int?,
+    val rhrAvgLastWeek: Int?,
+    val rhrDelta: Int?,
+    val avgStepsThisWeek: Int,
+    val avgStepsLastWeek: Int?,
 )
 
 class HomeViewModel(
@@ -69,6 +83,51 @@ class HomeViewModel(
 
     fun manualSync() = app.triggerManualSync()
 
+    private suspend fun computeInsights(date: LocalDate): WeeklyInsights {
+        val prefs = app.prefs.current()
+        val thisWeekStart = date.minusDays(6)
+        val lastWeekStart = date.minusDays(13)
+        val lastWeekEnd = date.minusDays(7)
+
+        val thisWeekDays = (0..6).map { repo.dailySummary(thisWeekStart.plusDays(it.toLong())) }
+        val lastWeekDays = (0..6).map { repo.dailySummary(lastWeekStart.plusDays(it.toLong())) }
+
+        val thisWeekSleep = (0..6).mapNotNull { offset ->
+            repo.sleepOnDate(thisWeekStart.plusDays(offset.toLong()))?.total?.toMinutes()
+        }
+        val lastWeekSleep = (0..6).mapNotNull { offset ->
+            repo.sleepOnDate(lastWeekStart.plusDays(offset.toLong()))?.total?.toMinutes()
+        }
+        val avgSleepThis = if (thisWeekSleep.isNotEmpty()) thisWeekSleep.average().toLong() else 0L
+        val avgSleepLast = if (lastWeekSleep.isNotEmpty()) lastWeekSleep.average().toLong() else null
+        val sleepDelta = avgSleepLast?.let { avgSleepThis - it }
+
+        val goalsHit = thisWeekDays.count { it.steps >= prefs.stepsGoal }
+
+        val rhrThis = thisWeekDays.mapNotNull { it.restingHeartRate }
+            .takeIf { it.isNotEmpty() }?.average()?.toInt()
+        val rhrLast = lastWeekDays.mapNotNull { it.restingHeartRate }
+            .takeIf { it.isNotEmpty() }?.average()?.toInt()
+        val rhrDelta = if (rhrThis != null && rhrLast != null) rhrThis - rhrLast else null
+
+        val avgStepsThis = thisWeekDays.map { it.steps }.average().toInt()
+        val avgStepsLast = lastWeekDays.map { it.steps }.takeIf { it.any { s -> s > 0 } }
+            ?.average()?.toInt()
+
+        return WeeklyInsights(
+            avgSleepMinThisWeek = avgSleepThis,
+            avgSleepMinLastWeek = avgSleepLast,
+            sleepDeltaMin = sleepDelta,
+            stepsGoalHitDays = goalsHit,
+            stepsGoal = prefs.stepsGoal,
+            rhrAvgThisWeek = rhrThis,
+            rhrAvgLastWeek = rhrLast,
+            rhrDelta = rhrDelta,
+            avgStepsThisWeek = avgStepsThis,
+            avgStepsLastWeek = avgStepsLast,
+        )
+    }
+
     private fun load(date: LocalDate) {
         currentJob?.cancel()
         currentJob = viewModelScope.launch {
@@ -90,6 +149,9 @@ class HomeViewModel(
             val weeklySteps = weekly.map { (d, ds, _) -> d to (ds?.steps ?: 0L) }
             val weeklyCal = weekly.map { (d, ds, _) -> d to (ds?.totalCalories ?: 0.0) }
             val weeklySleep = weekly.map { (d, _, sl) -> d to (sl?.total?.toMinutes() ?: 0L) }
+
+            val insights = runCatching { computeInsights(date) }.getOrNull()
+
             _state.value = HomeState(
                 loading = false,
                 date = date,
@@ -100,6 +162,7 @@ class HomeViewModel(
                 weeklySteps = weeklySteps,
                 weeklyCalories = weeklyCal,
                 weeklySleepMin = weeklySleep,
+                insights = insights,
             )
         }
     }
