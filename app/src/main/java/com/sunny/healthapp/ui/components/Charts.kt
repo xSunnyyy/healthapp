@@ -232,3 +232,47 @@ fun MiniSparkline(
         drawDot = false,
     )
 }
+
+/** Tight little bar chart for in-tile use: thin pills, no labels or axes. */
+@Composable
+fun MiniBars(
+    values: List<Float>,
+    color: Color,
+    modifier: Modifier = Modifier,
+    height: Dp = 32.dp,
+    highlightIndex: Int? = null,
+) {
+    val max = (values.maxOrNull() ?: 1f).coerceAtLeast(1f)
+    val anim by animateFloatAsState(
+        targetValue = 1f,
+        animationSpec = tween(durationMillis = 700),
+        label = "miniBars",
+    )
+    Row(
+        modifier = modifier.fillMaxWidth().height(height),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        values.forEachIndexed { i, v ->
+            val ratio = (v / max).coerceIn(0.08f, 1f)
+            val isHi = highlightIndex == i
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(height * ratio * anim),
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val r = (size.width / 2f).coerceAtMost(size.height / 2f)
+                    drawRoundRect(
+                        brush = Brush.verticalGradient(
+                            0.0f to (if (isHi) color else color.copy(alpha = 0.75f)),
+                            1.0f to (if (isHi) color.copy(alpha = 0.55f) else color.copy(alpha = 0.30f)),
+                        ),
+                        size = androidx.compose.ui.geometry.Size(size.width, size.height),
+                        cornerRadius = CornerRadius(r, r),
+                    )
+                }
+            }
+        }
+    }
+}

@@ -36,29 +36,29 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sunny.healthapp.HealthApp
 import com.sunny.healthapp.domain.model.SleepSummary
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
+import androidx.compose.material.icons.outlined.Bedtime
+import androidx.compose.material.icons.outlined.LocalFireDepartment
 import com.sunny.healthapp.ui.components.BarChart7Day
 import com.sunny.healthapp.ui.components.BarPoint
 import com.sunny.healthapp.ui.components.DateScrubber
 import com.sunny.healthapp.ui.components.EditorialHeader
-import com.sunny.healthapp.ui.components.GradientTile
-import com.sunny.healthapp.ui.components.GradientTileRow
 import com.sunny.healthapp.ui.components.MiniSparkline
 import com.sunny.healthapp.ui.components.Panel
 import com.sunny.healthapp.ui.components.StaggeredEnter
+import com.sunny.healthapp.ui.components.StatTile
+import com.sunny.healthapp.ui.components.StatTileRow
+import com.sunny.healthapp.ui.components.TileChart
 import com.sunny.healthapp.ui.screens.PermissionGate
 import com.sunny.healthapp.ui.theme.Accent
 import com.sunny.healthapp.ui.theme.Crimson
 import com.sunny.healthapp.ui.theme.Lavender
 import com.sunny.healthapp.ui.theme.LavenderDeep
+import com.sunny.healthapp.ui.theme.Sunflare
 import com.sunny.healthapp.ui.theme.TextMuted
 import com.sunny.healthapp.ui.theme.TextPrimary
 import com.sunny.healthapp.ui.theme.TextSecondary
-import com.sunny.healthapp.ui.theme.TileCoolEnd
-import com.sunny.healthapp.ui.theme.TileCoolStart
-import com.sunny.healthapp.ui.theme.TileSoftEnd
-import com.sunny.healthapp.ui.theme.TileSoftStart
-import com.sunny.healthapp.ui.theme.TileWarmEnd
-import com.sunny.healthapp.ui.theme.TileWarmStart
 import java.time.LocalDate
 
 @Composable
@@ -194,47 +194,85 @@ private fun headerTitle(date: LocalDate): String {
 @Composable
 private fun TopMetricRow(state: HomeState, onNavigate: (String) -> Unit) {
     val daily = state.daily
-    val prev = state.previousDaily
-    val stepsDelta = deltaPct(daily?.steps?.toDouble(), prev?.steps?.toDouble())
-    val calDelta = deltaPct(daily?.totalCalories, prev?.totalCalories)
     val sleepMin = state.sleep?.total?.toMinutes()
-    GradientTileRow(
+    val stepsBars = state.weeklySteps.map { it.second.toFloat() }
+    val calBars = state.weeklyCalories.map { it.second.toFloat() }
+    val sleepBars = state.weeklySleepMin.map { it.second.toFloat() }
+    val hiIdx = state.weeklySteps.indexOfFirst { it.first == state.date }.takeIf { it >= 0 }
+
+    StatTileRow(
         tiles = listOf(
             { mod ->
-                GradientTile(
+                StatTile(
+                    icon = Icons.AutoMirrored.Outlined.DirectionsWalk,
                     label = "Steps",
                     value = "%,d".format(daily?.steps ?: 0L),
-                    delta = stepsDelta,
-                    glowStart = TileCoolStart,
-                    glowEnd = TileCoolEnd,
+                    status = stepsStatus(daily?.steps ?: 0L),
+                    accent = Accent,
+                    chartValues = stepsBars,
+                    chart = TileChart.Bars,
+                    chartHighlightIndex = hiIdx,
                     modifier = mod,
                     onClick = { onNavigate("activity") },
                 )
             },
             { mod ->
-                GradientTile(
+                StatTile(
+                    icon = Icons.Outlined.LocalFireDepartment,
                     label = "Calories",
                     value = "%,d".format((daily?.totalCalories ?: 0.0).toInt()),
-                    delta = calDelta,
-                    glowStart = TileWarmStart,
-                    glowEnd = TileWarmEnd,
+                    unit = "kcal",
+                    status = caloriesStatus((daily?.totalCalories ?: 0.0).toInt()),
+                    accent = Sunflare,
+                    chartValues = calBars,
+                    chart = TileChart.Bars,
+                    chartHighlightIndex = hiIdx,
                     modifier = mod,
                     onClick = { onNavigate("activity") },
                 )
             },
             { mod ->
-                GradientTile(
+                StatTile(
+                    icon = Icons.Outlined.Bedtime,
                     label = "Sleep",
                     value = sleepMin?.let { formatSleep(it) } ?: "—",
-                    delta = state.sleep?.efficiencyPct?.let { "$it% eff" },
-                    glowStart = TileSoftStart,
-                    glowEnd = TileSoftEnd,
+                    status = sleepStatus(sleepMin),
+                    accent = Lavender,
+                    chartValues = sleepBars,
+                    chart = TileChart.Bars,
+                    chartHighlightIndex = hiIdx,
                     modifier = mod,
                     onClick = { onNavigate("sleep") },
                 )
             },
         ),
     )
+}
+
+private fun stepsStatus(steps: Long): String = when {
+    steps >= 10_000 -> "Active"
+    steps >= 5_000 -> "Moving"
+    steps > 0 -> "Resting"
+    else -> "No data"
+}
+
+private fun caloriesStatus(cal: Int): String = when {
+    cal >= 2_500 -> "Above avg"
+    cal >= 1_500 -> "On track"
+    cal > 0 -> "Below avg"
+    else -> "No data"
+}
+
+private fun sleepStatus(minutes: Long?): String {
+    val m = minutes ?: return "No data"
+    val h = m / 60.0
+    return when {
+        h >= 9 -> "Long"
+        h >= 7 -> "Optimal"
+        h >= 6 -> "Short"
+        h > 0 -> "Very short"
+        else -> "No data"
+    }
 }
 
 @Composable
