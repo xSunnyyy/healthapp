@@ -37,9 +37,10 @@ import com.sunny.healthapp.ui.components.LinePoint
 import com.sunny.healthapp.ui.components.Panel
 import com.sunny.healthapp.ui.components.Period
 import com.sunny.healthapp.ui.components.PeriodTabs
+import com.sunny.healthapp.ui.components.RefreshableContent
 import com.sunny.healthapp.ui.components.SmoothLineChart
 import com.sunny.healthapp.ui.components.StaggeredEnter
-import com.sunny.healthapp.ui.components.SyncIndicator
+import com.sunny.healthapp.ui.components.SyncDot
 import com.sunny.healthapp.ui.components.ZoneBar
 import com.sunny.healthapp.ui.screens.PermissionGate
 import com.sunny.healthapp.ui.theme.Accent
@@ -79,6 +80,12 @@ private fun Content(
     onSync: () -> Unit,
 ) {
     val statusInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val isRefreshing = sync is com.sunny.healthapp.data.sync.SyncStatus.Syncing
+    RefreshableContent(
+        isRefreshing = isRefreshing,
+        onRefresh = onSync,
+        modifier = Modifier.fillMaxSize(),
+    ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -98,7 +105,7 @@ private fun Content(
                 modifier = m.padding(horizontal = 20.dp).fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
             ) {
-                SyncIndicator(status = sync, onClick = onSync)
+                SyncDot(status = sync, onClick = onSync, size = 30.dp)
             }
         }
         Spacer(Modifier.height(14.dp))
@@ -225,6 +232,7 @@ private fun Content(
                 }
             }
         }
+    }
     }
 }
 
