@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,14 +21,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.sunny.healthapp.ui.theme.Ink800
 
-/**
- * Top-row metric tile — soft light gradient sitting on the dark ink base.
- * Backlit pastel feel: bright at top-left fading toward transparent at bottom-right,
- * over a low-luminance base layer so the dark surface still reads through.
- */
 @Composable
 fun GradientTile(
     label: String,
@@ -68,29 +66,43 @@ fun GradientTile(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.Start,
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp),
                 color = Color.White.copy(alpha = 0.92f),
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
             )
-            Column {
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = Color.White,
-                )
-                if (delta != null) {
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = delta,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.White.copy(alpha = 0.75f),
-                    )
-                }
-            }
+            // Value — single line forced, scaled down if needed via fontSize
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Light,
+                ),
+                color = Color.White,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Clip,
+                textAlign = TextAlign.Start,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            // Delta — single line, ellipsized if too wide
+            Text(
+                text = delta ?: " ",
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                color = Color.White.copy(alpha = 0.72f),
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }
@@ -101,10 +113,10 @@ fun GradientTileRow(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth().height(120.dp),
+        modifier = modifier.fillMaxWidth().height(124.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        tiles.forEach { tile -> tile(Modifier.weight(1f).fillMaxSize()) }
+        tiles.forEach { tile -> tile(Modifier.weight(1f).height(124.dp)) }
     }
 }

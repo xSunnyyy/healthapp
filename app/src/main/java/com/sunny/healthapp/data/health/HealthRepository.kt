@@ -1,18 +1,9 @@
 package com.sunny.healthapp.data.health
 
-import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
-import androidx.health.connect.client.records.DistanceRecord
-import androidx.health.connect.client.records.ExerciseSessionRecord
-import androidx.health.connect.client.records.FloorsClimbedRecord
-import androidx.health.connect.client.records.HeartRateRecord
-import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
-import androidx.health.connect.client.records.OxygenSaturationRecord
-import androidx.health.connect.client.records.RespiratoryRateRecord
-import androidx.health.connect.client.records.RestingHeartRateRecord
-import androidx.health.connect.client.records.SleepSessionRecord
-import androidx.health.connect.client.records.StepsRecord
-import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
-import androidx.health.connect.client.time.TimeRangeFilter
+import com.sunny.healthapp.data.db.HealthDatabase
+import com.sunny.healthapp.data.db.entities.DailySummaryEntity
+import com.sunny.healthapp.data.db.entities.SleepSessionEntity
+import com.sunny.healthapp.data.db.entities.SleepStageEntity
 import com.sunny.healthapp.domain.ReadinessCalculator
 import com.sunny.healthapp.domain.model.DailySummary
 import com.sunny.healthapp.domain.model.ReadinessSummary
@@ -24,137 +15,121 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-class HealthRepository(private val hc: HealthConnectManager) {
+/**
+ * Reads from the local Room cache (populated by HealthSyncManager).
+ * Every call returns a domain model whether or not a sync has happened —
+ * callers get empty/null on cache miss without any HC hit.
+ */
+class HealthRepository(
+    private val hc: HealthConnectManager,
+    private val db: HealthDatabase,
+) {
 
-    suspend fun dailySummary(date: LocalDate, zone: ZoneId = ZoneId.systemDefault()): DailySummary {
-        val start = date.atStartOfDay(zone).toInstant()
-        val end = date.plusDays(1).atStartOfDay(zone).toInstant()
-        val range = TimeRangeFilter.between(start, end)
-
-        val steps = hc.read(StepsRecord::class, range).sumOf { it.count }
-        val active = hc.read(ActiveCaloriesBurnedRecord::class, range)
-            .sumOf { it.energy.inKilocalories }
-        val total = hc.read(TotalCaloriesBurnedRecord::class, range)
-            .sumOf { it.energy.inKilocalories }
-        val distance = hc.read(DistanceRecord::class, range)
-            .sumOf { it.distance.inMeters }
-        val exercise = hc.read(ExerciseSessionRecord::class, range)
-            .sumOf { Duration.between(it.startTime, it.endTime).toMinutes() }
-        val floors = hc.read(FloorsClimbedRecord::class, range).sumOf { it.floors }
-        val hrSamples = hc.read(HeartRateRecord::class, range)
-            .flatMap { record -> record.samples.map { it.time to it.beatsPerMinute.toInt() } }
-            .sortedBy { it.first }
-        val hr = hrSamples.map { it.second }
-        val latest = hrSamples.lastOrNull()?.second
-        val rhr = hc.read(RestingHeartRateRecord::class, range)
-            .map { it.beatsPerMinute.toInt() }.minOrNull()
-
-        return DailySummary(
+    suspend fun dailySummary(date: LocalDate): DailySummary {
+        val row = db.dailySummaryDao().get(date)
+        return row?.toDomain() ?: DailySummary(
             date = date,
-            steps = steps,
-            activeCalories = active,
-            totalCalories = if (total > 0) total else active,
-            distanceMeters = distance,
-            exerciseMinutes = exercise,
-            floorsClimbed = floors,
-            avgHeartRate = hr.takeIf { it.isNotEmpty() }?.average()?.toInt(),
-            minHeartRate = hr.minOrNull(),
-            maxHeartRate = hr.maxOrNull(),
-            latestHeartRate = latest,
-            restingHeartRate = rhr,
+            steps = 0L,
+            activeCalories = 0.0,
+            totalCalories = 0.0,
+            distanceMeters = 0.0,
+            exerciseMinutes = 0L,
+            floorsClimbed = 0.0,
+            avgHeartRate = null,
+            minHeartRate = null,
+            maxHeartRate = null,
+            latestHeartRate = null,
+            restingHeartRate = null,
         )
     }
+
+    suspend fun dailyRange(start: LocalDate, end: LocalDate): List<DailySummary> =
+        db.dailySummaryDao().range(start, end).map { it.toDomain() }
 
     suspend fun lastNightSleep(zone: ZoneId = ZoneId.systemDefault()): SleepSummary? {
-        val now = Instant.now()
-        val from = now.minus(Duration.ofHours(36))
-        val sessions = hc.read(SleepSessionRecord::class, TimeRangeFilter.between(from, now))
-        val latest = sessions.maxByOrNull { it.endTime } ?: return null
-        return buildSleepSummary(latest)
+        val s = db.sleepDao().latest() ?: return null
+        val stages = db.sleepDao().stagesFor(s.id)
+        return s.toDomain(stages)
     }
 
-    private suspend fun buildSleepSummary(s: SleepSessionRecord): SleepSummary {
-        val range = TimeRangeFilter.between(s.startTime, s.endTime)
-        val segments = s.stages.map { st ->
-            SleepSegment(
-                stage = when (st.stage) {
-                    SleepSessionRecord.STAGE_TYPE_AWAKE,
-                    SleepSessionRecord.STAGE_TYPE_OUT_OF_BED,
-                    SleepSessionRecord.STAGE_TYPE_AWAKE_IN_BED -> SleepStage.Awake
-                    SleepSessionRecord.STAGE_TYPE_LIGHT,
-                    SleepSessionRecord.STAGE_TYPE_SLEEPING -> SleepStage.Light
-                    SleepSessionRecord.STAGE_TYPE_DEEP -> SleepStage.Deep
-                    SleepSessionRecord.STAGE_TYPE_REM -> SleepStage.REM
-                    else -> SleepStage.Unknown
-                },
-                start = st.startTime,
-                end = st.endTime,
-            )
+    suspend fun sleepOnDate(date: LocalDate, zone: ZoneId = ZoneId.systemDefault()): SleepSummary? {
+        // Find the sleep session whose "wake time" lands on this date.
+        val windowStart = date.minusDays(1).atStartOfDay(zone).toInstant()
+        val windowEnd = date.plusDays(1).atStartOfDay(zone).toInstant()
+        val sessions = db.sleepDao().range(windowStart, windowEnd)
+        val s = sessions.maxByOrNull { it.end } ?: return null
+        val stages = db.sleepDao().stagesFor(s.id)
+        return s.toDomain(stages)
+    }
+
+    suspend fun readiness(): ReadinessSummary {
+        val today = LocalDate.now()
+        val sevenDays = (0..6).map { today.minusDays(it.toLong()) }
+        val summaries = sevenDays.mapNotNull { db.dailySummaryDao().get(it) }
+        val recentSleepHours = (0..6).mapNotNull { offset ->
+            sleepOnDate(today.minusDays(offset.toLong()))?.total?.toMinutes()?.toDouble()?.div(60.0)
         }
-        val byStage = segments.groupBy { it.stage }
-            .mapValues { (_, list) -> list.fold(Duration.ZERO) { acc, seg -> acc + seg.duration } }
-        val awake = byStage[SleepStage.Awake] ?: Duration.ZERO
-        val light = byStage[SleepStage.Light] ?: Duration.ZERO
-        val deep = byStage[SleepStage.Deep] ?: Duration.ZERO
-        val rem = byStage[SleepStage.REM] ?: Duration.ZERO
-        val timeInBed = Duration.between(s.startTime, s.endTime)
 
-        val hr = hc.read(HeartRateRecord::class, range)
-            .flatMap { it.samples }.map { it.beatsPerMinute.toInt() }
-            .takeIf { it.isNotEmpty() }?.average()?.toInt()
-        val hrv = hc.read(HeartRateVariabilityRmssdRecord::class, range)
-            .map { it.heartRateVariabilityMillis }
-            .takeIf { it.isNotEmpty() }?.average()
-        val spo2 = hc.read(OxygenSaturationRecord::class, range)
-            .map { it.percentage.value }
-            .takeIf { it.isNotEmpty() }?.average()
-        val rr = hc.read(RespiratoryRateRecord::class, range)
-            .map { it.rate }
-            .takeIf { it.isNotEmpty() }?.average()
+        val rhrSamples = summaries.mapNotNull { it.restingHeartRate }
+        val latestRhr = rhrSamples.firstOrNull()
+        val baselineRhr = rhrSamples.drop(1).takeIf { it.isNotEmpty() }?.average()?.toInt()
 
-        return SleepSummary(
-            start = s.startTime,
-            end = s.endTime,
-            timeInBed = timeInBed,
-            awake = awake,
-            light = light,
-            deep = deep,
-            rem = rem,
-            segments = segments,
-            avgHeartRate = hr,
-            avgHrv = hrv,
-            avgSpo2 = spo2,
-            avgRespiratoryRate = rr,
-        )
-    }
-
-    suspend fun readiness(zone: ZoneId = ZoneId.systemDefault()): ReadinessSummary {
+        // Pull recent HRV from the samples table
         val now = Instant.now()
-        val sevenDays = TimeRangeFilter.between(now.minus(Duration.ofDays(7)), now)
-
-        val rhrSamples = hc.read(RestingHeartRateRecord::class, sevenDays)
-            .map { it.beatsPerMinute.toInt() }
-        val latestRhr = rhrSamples.lastOrNull()
-        val baselineRhr = rhrSamples.dropLast(1).takeIf { it.isNotEmpty() }?.average()?.toInt()
-
-        val hrvSamples = hc.read(HeartRateVariabilityRmssdRecord::class, sevenDays)
-            .map { it.heartRateVariabilityMillis }
+        val weekAgo = now.minus(Duration.ofDays(7))
+        val hrvSamples = db.hrvSampleDao().range(weekAgo, now).map { it.rmssdMs }
         val latestHrv = hrvSamples.lastOrNull()
         val baselineHrv = hrvSamples.dropLast(1).takeIf { it.isNotEmpty() }?.average()
 
-        val recentSleep = mutableListOf<Double>()
-        val sessions = hc.read(SleepSessionRecord::class, sevenDays)
-        sessions.forEach {
-            recentSleep += Duration.between(it.startTime, it.endTime).toMinutes() / 60.0
-        }
-
         return ReadinessCalculator.compute(
-            lastNight = lastNightSleep(zone),
+            lastNight = lastNightSleep(),
             rhrBpm = latestRhr,
             rhrBaselineBpm = baselineRhr,
             hrvMs = latestHrv,
             hrvBaselineMs = baselineHrv,
-            recentSleepHours = recentSleep,
+            recentSleepHours = recentSleepHours,
         )
     }
+
+    private fun DailySummaryEntity.toDomain() = DailySummary(
+        date = date,
+        steps = steps,
+        activeCalories = activeCalories,
+        totalCalories = totalCalories,
+        distanceMeters = distanceMeters,
+        exerciseMinutes = exerciseMinutes,
+        floorsClimbed = floorsClimbed,
+        avgHeartRate = avgHeartRate,
+        minHeartRate = minHeartRate,
+        maxHeartRate = maxHeartRate,
+        latestHeartRate = latestHeartRate,
+        restingHeartRate = restingHeartRate,
+    )
+
+    private fun SleepSessionEntity.toDomain(stages: List<SleepStageEntity>) = SleepSummary(
+        start = start,
+        end = end,
+        timeInBed = Duration.ofMinutes(timeInBedMin),
+        awake = Duration.ofMinutes(awakeMin),
+        light = Duration.ofMinutes(lightMin),
+        deep = Duration.ofMinutes(deepMin),
+        rem = Duration.ofMinutes(remMin),
+        segments = stages.map { it.toDomain() },
+        avgHeartRate = avgHeartRate,
+        avgHrv = avgHrvMs,
+        avgSpo2 = avgSpo2Pct,
+        avgRespiratoryRate = avgRespirationRpm,
+    )
+
+    private fun SleepStageEntity.toDomain() = SleepSegment(
+        stage = when (stage) {
+            "AWAKE" -> SleepStage.Awake
+            "REM" -> SleepStage.REM
+            "LIGHT" -> SleepStage.Light
+            "DEEP" -> SleepStage.Deep
+            else -> SleepStage.Unknown
+        },
+        start = start,
+        end = end,
+    )
 }
