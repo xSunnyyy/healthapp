@@ -107,21 +107,42 @@ class HealthSyncManager(
             val range = TimeRangeFilter.between(dayStart, dayEnd)
 
             try {
-                val steps = hc.read(StepsRecord::class, range).sumOf { it.count }
-                val active = hc.read(ActiveCaloriesBurnedRecord::class, range).sumOf { it.energy.inKilocalories }
-                val total = hc.read(TotalCaloriesBurnedRecord::class, range).sumOf { it.energy.inKilocalories }
-                val distance = hc.read(DistanceRecord::class, range).sumOf { it.distance.inMeters }
+                // Use HC's aggregate API for sums — it dedupes across sources the
+                // same way Google Health does, so totals match instead of being
+                // double-counted when Fitbit + phone both write the same metric.
+                val agg = hc.aggregate(
+                    setOf(
+                        StepsRecord.COUNT_TOTAL,
+                        ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL,
+                        TotalCaloriesBurnedRecord.ENERGY_TOTAL,
+                        DistanceRecord.DISTANCE_TOTAL,
+                        FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL,
+                        HeartRateRecord.BPM_AVG,
+                        HeartRateRecord.BPM_MIN,
+                        HeartRateRecord.BPM_MAX,
+                        RestingHeartRateRecord.BPM_AVG,
+                    ),
+                    range,
+                )
+
+                val steps = agg?.get(StepsRecord.COUNT_TOTAL) ?: 0L
+                val active = agg?.get(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)?.inKilocalories ?: 0.0
+                val total = agg?.get(TotalCaloriesBurnedRecord.ENERGY_TOTAL)?.inKilocalories ?: 0.0
+                val distance = agg?.get(DistanceRecord.DISTANCE_TOTAL)?.inMeters ?: 0.0
+                val floors = agg?.get(FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL) ?: 0.0
+                val aggAvgHr = agg?.get(HeartRateRecord.BPM_AVG)?.toInt()
+                val aggMinHr = agg?.get(HeartRateRecord.BPM_MIN)?.toInt()
+                val aggMaxHr = agg?.get(HeartRateRecord.BPM_MAX)?.toInt()
+                val aggRhr = agg?.get(RestingHeartRateRecord.BPM_AVG)?.toInt()
+
                 val exerciseMin = hc.read(ExerciseSessionRecord::class, range)
                     .sumOf { Duration.between(it.startTime, it.endTime).toMinutes() }
-                val floors = hc.read(FloorsClimbedRecord::class, range).sumOf { it.floors }
 
+                // Pull raw HR samples for charting (aggregate doesn't include time-series)
                 val hrRecords = hc.read(HeartRateRecord::class, range)
                 val samplesInDay = hrRecords.flatMap { r ->
                     r.samples.map { it.time to it.beatsPerMinute.toInt() }
                 }.sortedBy { it.first }
-                val bpms = samplesInDay.map { it.second }
-                val rhr = hc.read(RestingHeartRateRecord::class, range)
-                    .map { it.beatsPerMinute.toInt() }.minOrNull()
 
                 val entity = DailySummaryEntity(
                     date = d,
@@ -131,11 +152,11 @@ class HealthSyncManager(
                     distanceMeters = distance,
                     exerciseMinutes = exerciseMin,
                     floorsClimbed = floors,
-                    avgHeartRate = bpms.takeIf { it.isNotEmpty() }?.average()?.toInt(),
-                    minHeartRate = bpms.minOrNull(),
-                    maxHeartRate = bpms.maxOrNull(),
+                    avgHeartRate = aggAvgHr,
+                    minHeartRate = aggMinHr,
+                    maxHeartRate = aggMaxHr,
                     latestHeartRate = samplesInDay.lastOrNull()?.second,
-                    restingHeartRate = rhr,
+                    restingHeartRate = aggRhr,
                 )
                 db.dailySummaryDao().upsert(entity)
                 daysWritten++

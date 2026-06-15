@@ -32,7 +32,7 @@ data class ReadinessState(
     val maxHrTime: Instant? = null,
     val chartValues: List<Float> = emptyList(),
     val chartLabels: List<String> = emptyList(),
-    // zone percents
+    val pctResting: Int = 0,
     val pctNormal: Int = 0,
     val pctElevated: Int = 0,
     val pctHigh: Int = 0,
@@ -91,9 +91,11 @@ class ReadinessViewModel(
             val restingHr = repo.dailySummary(LocalDate.now()).restingHeartRate
 
             val totalCount = bpms.size.coerceAtLeast(1)
+            val restingCount = bpms.count { it < 60 }
             val normalCount = bpms.count { it in 60..99 }
             val elevatedCount = bpms.count { it in 100..129 }
             val highCount = bpms.count { it >= 130 }
+            val pctR = (restingCount * 100) / totalCount
             val pctN = (normalCount * 100) / totalCount
             val pctE = (elevatedCount * 100) / totalCount
             val pctH = (highCount * 100) / totalCount
@@ -114,6 +116,7 @@ class ReadinessViewModel(
                 maxHrTime = max?.time,
                 chartValues = chartVals,
                 chartLabels = chartLabels,
+                pctResting = pctR,
                 pctNormal = pctN,
                 pctElevated = pctE,
                 pctHigh = pctH,

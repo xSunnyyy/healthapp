@@ -24,6 +24,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +44,7 @@ import com.sunny.healthapp.ui.components.EditorialHeader
 import com.sunny.healthapp.ui.components.Panel
 import com.sunny.healthapp.ui.components.Period
 import com.sunny.healthapp.ui.components.PeriodTabs
+import com.sunny.healthapp.ui.components.SleepStageInfoSheet
 import com.sunny.healthapp.ui.components.SleepStagesBar
 import com.sunny.healthapp.ui.components.StaggeredEnter
 import com.sunny.healthapp.ui.components.SyncDot
@@ -80,7 +84,11 @@ private fun Content(
     onSetPeriod: (Period) -> Unit,
     onSync: () -> Unit,
 ) {
+    var stageToExplain by remember { mutableStateOf<com.sunny.healthapp.domain.model.SleepStage?>(null) }
     val statusInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    stageToExplain?.let { stage ->
+        SleepStageInfoSheet(stage = stage, onDismiss = { stageToExplain = null })
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -112,14 +120,17 @@ private fun Content(
         Spacer(Modifier.height(18.dp))
 
         when (state.period) {
-            Period.D -> DayContent(state.singleSession)
+            Period.D -> DayContent(state.singleSession, onStageClick = { stageToExplain = it })
             else -> AggregateContent(state)
         }
     }
 }
 
 @Composable
-private fun DayContent(sleep: SleepSummary?) {
+private fun DayContent(
+    sleep: SleepSummary?,
+    onStageClick: (com.sunny.healthapp.domain.model.SleepStage) -> Unit,
+) {
     StaggeredEnter(2) { m ->
         Box(modifier = m.padding(horizontal = 20.dp)) {
             Panel(modifier = Modifier.fillMaxWidth()) {
@@ -165,7 +176,7 @@ private fun DayContent(sleep: SleepSummary?) {
                 Panel(modifier = Modifier.fillMaxWidth()) {
                     Text("Stages", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
                     Spacer(Modifier.height(14.dp))
-                    SleepStagesBar(sleep = sleep)
+                    SleepStagesBar(sleep = sleep, onStageClick = onStageClick)
                 }
             }
         }
