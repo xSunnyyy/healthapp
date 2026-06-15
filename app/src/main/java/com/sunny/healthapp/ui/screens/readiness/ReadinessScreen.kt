@@ -215,6 +215,8 @@ private fun Content(
                 Panel(modifier = Modifier.fillMaxWidth()) {
                     Text("Heart Rate Zones", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
                     Spacer(Modifier.height(16.dp))
+                    ZoneBar("Resting", "Below 60 bpm", state.pctResting, Accent)
+                    Spacer(Modifier.height(14.dp))
                     ZoneBar("Normal", "60–100 bpm", state.pctNormal, MintGlow)
                     Spacer(Modifier.height(14.dp))
                     ZoneBar("Elevated", "100–130 bpm", state.pctElevated, Sunflare)

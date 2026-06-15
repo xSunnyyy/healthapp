@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -59,6 +60,7 @@ fun SleepStagesBar(
     sleep: SleepSummary,
     modifier: Modifier = Modifier,
     trackHeight: Dp = 28.dp,
+    onStageClick: ((SleepStage) -> Unit)? = null,
 ) {
     val segments = sleep.segments
     val anim by animateFloatAsState(
@@ -166,15 +168,31 @@ fun SleepStagesBar(
         val totalMin = durationsByStage.values.sumOf { it.toMinutes() }.coerceAtLeast(1L)
         durationsByStage.forEach { (stage, dur) ->
             val pct = ((dur.toMinutes() * 100.0) / totalMin).toInt()
-            StageRow(label = stage.name, duration = dur, percent = pct, color = stageColor(stage))
+            StageRow(
+                stage = stage,
+                duration = dur,
+                percent = pct,
+                color = stageColor(stage),
+                onClick = onStageClick?.let { cb -> { cb(stage) } },
+            )
             if (stage != SleepStage.Awake) Spacer(Modifier.height(8.dp))
         }
     }
 }
 
 @Composable
-private fun StageRow(label: String, duration: Duration, percent: Int, color: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+private fun StageRow(
+    stage: SleepStage,
+    duration: Duration,
+    percent: Int,
+    color: Color,
+    onClick: (() -> Unit)? = null,
+) {
+    val clickMod = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
+    Row(
+        modifier = clickMod.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Box(
             modifier = Modifier
                 .size(10.dp)
@@ -182,12 +200,20 @@ private fun StageRow(label: String, duration: Duration, percent: Int, color: Col
                 .background(color),
         )
         Spacer(Modifier.size(12.dp))
-        Text(
-            text = label.uppercase(),
-            style = MaterialTheme.typography.labelMedium,
-            color = TextSecondary,
-            modifier = Modifier.weight(1f),
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stage.name.uppercase(),
+                style = MaterialTheme.typography.labelMedium,
+                color = TextSecondary,
+            )
+            if (onClick != null) {
+                Text(
+                    text = "tap to learn more",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextMuted,
+                )
+            }
+        }
         Text(
             text = formatDur(duration),
             style = MaterialTheme.typography.titleMedium,

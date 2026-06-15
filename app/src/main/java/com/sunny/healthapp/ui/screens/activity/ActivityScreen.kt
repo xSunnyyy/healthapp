@@ -29,29 +29,27 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sunny.healthapp.HealthApp
+import com.sunny.healthapp.domain.model.DailySummary
 import com.sunny.healthapp.ui.components.EditorialHeader
 import com.sunny.healthapp.ui.components.Panel
 import com.sunny.healthapp.ui.components.RingProgress
 import com.sunny.healthapp.ui.components.StaggeredEnter
+import com.sunny.healthapp.ui.components.SyncDot
 import com.sunny.healthapp.ui.components.WeekStrip
 import com.sunny.healthapp.ui.screens.PermissionGate
 import com.sunny.healthapp.ui.theme.Accent
-import com.sunny.healthapp.ui.theme.AccentDeep
 import com.sunny.healthapp.ui.theme.Crimson
 import com.sunny.healthapp.ui.theme.Lavender
 import com.sunny.healthapp.ui.theme.MintGlow
@@ -60,6 +58,8 @@ import com.sunny.healthapp.ui.theme.TextMuted
 import com.sunny.healthapp.ui.theme.TextPrimary
 import com.sunny.healthapp.ui.theme.TextSecondary
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun ActivityScreen() {
@@ -67,20 +67,27 @@ fun ActivityScreen() {
         val app = LocalContext.current.applicationContext as HealthApp
         val vm: ActivityViewModel = viewModel(factory = ActivityViewModel.factory(app))
         val state by vm.state.collectAsStateWithLifecycle()
-        if (state.loading) {
+        val sync by vm.syncStatus.collectAsStateWithLifecycle()
+        if (state.loading && state.selected == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Accent, strokeWidth = 2.dp)
             }
         } else {
-            Content(state)
+            Content(state, sync, onSelectDate = vm::setDate, onSync = vm::manualSync)
         }
     }
 }
 
 @Composable
-private fun Content(state: ActivityState) {
+private fun Content(
+    state: ActivityState,
+    sync: com.sunny.healthapp.data.sync.SyncStatus,
+    onSelectDate: (LocalDate) -> Unit,
+    onSync: () -> Unit,
+) {
     val statusInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    val daily = state.selected
+    val prev = state.previousDay
 
     Column(
         modifier = Modifier
@@ -91,19 +98,25 @@ private fun Content(state: ActivityState) {
         StaggeredEnter(0) { m ->
             EditorialHeader(
                 eyebrow = "Progress tracking",
-                title = "Your week,\nin motion.",
+                title = dateHeadline(state.date),
                 modifier = m,
             )
         }
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(14.dp))
 
         StaggeredEnter(1) { m ->
-            Box(modifier = m.padding(horizontal = 20.dp)) {
+            Row(
+                modifier = m.padding(horizontal = 20.dp).fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 WeekStrip(
-                    selected = selectedDate,
-                    onSelect = { selectedDate = it },
+                    selected = state.date,
+                    onSelect = onSelectDate,
                     activeDays = state.recent.map { it.date }.toSet(),
+                    modifier = Modifier.weight(1f),
                 )
+                SyncDot(status = sync, onClick = onSync)
             }
         }
         Spacer(Modifier.height(20.dp))
@@ -114,7 +127,7 @@ private fun Content(state: ActivityState) {
                     Text("Goal Progress", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
                     Spacer(Modifier.height(14.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        val steps = state.today?.steps ?: 0L
+                        val steps = daily?.steps ?: 0L
                         val progress = (steps / 10_000f).coerceIn(0f, 1f)
                         val pct = (progress * 100).toInt()
                         RingProgress(
@@ -124,23 +137,24 @@ private fun Content(state: ActivityState) {
                             diameter = 110.dp,
                             strokeWidth = 10.dp,
                             centerLabel = "$pct%",
-                            centerCaption = "Score",
+                            centerCaption = "Goal",
                         )
                         Spacer(Modifier.width(20.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Critical range",
+                                rangeBlurb(pct),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = TextPrimary,
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                "Keep going to reach your weekly benchmark",
+                                rangeSubtitle(steps),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = TextSecondary,
                             )
                             Spacer(Modifier.height(10.dp))
-                            DeltaChip("+14% vs yesterday", MintGlow)
+                            val (delta, color) = stepDelta(daily?.steps, prev?.steps)
+                            if (delta != null) DeltaChip(delta, color)
                         }
                     }
                 }
@@ -152,26 +166,31 @@ private fun Content(state: ActivityState) {
         StaggeredEnter(3) { m ->
             Box(modifier = m.padding(horizontal = 20.dp)) {
                 Panel(modifier = Modifier.fillMaxWidth()) {
-                    Text("Activity", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                    Text("Calories burned", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
                     Spacer(Modifier.height(16.dp))
                     Row(verticalAlignment = Alignment.Top) {
-                        StatColumn("+23%", "vs yesterday", MintGlow, Modifier.weight(1f))
+                        val (calDelta, _) = stepDelta(
+                            (daily?.totalCalories ?: 0.0).toLong(),
+                            (prev?.totalCalories ?: 0.0).toLong(),
+                        )
+                        StatColumn(calDelta ?: "—", "vs ${prevLabel(state.date)}", MintGlow, Modifier.weight(1f))
                         StatColumn(
-                            (state.today?.totalCalories ?: 0.0).toInt().toString(),
+                            "%,d".format((daily?.totalCalories ?: 0.0).toInt()),
                             "Total burned",
                             Accent,
                             Modifier.weight(1f),
                             unit = "kcal",
                         )
+                        val weeklyAvg = (state.recent.sumOf { it.totalCalories } / state.recent.size.coerceAtLeast(1))
                         StatColumn(
-                            ((state.today?.totalCalories ?: 0.0) / 1.5).toInt().toString(),
-                            "Daily avg",
+                            "%,d".format(weeklyAvg.toInt()),
+                            "7-day avg",
                             Lavender,
                             Modifier.weight(1f),
                             unit = "kcal",
                         )
                     }
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(18.dp))
                     WeeklyCalorieBars(state)
                     Spacer(Modifier.height(14.dp))
                     Text(
@@ -188,38 +207,102 @@ private fun Content(state: ActivityState) {
         StaggeredEnter(4) { m ->
             Box(modifier = m.padding(horizontal = 20.dp)) {
                 Panel(modifier = Modifier.fillMaxWidth()) {
-                    Text("Daily Goals", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                    Text(
+                        "Daily Goals · ${dateHeadlineShort(state.date)}",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = TextPrimary,
+                    )
                     Spacer(Modifier.height(14.dp))
                     GoalRow(
                         label = "Steps",
-                        current = (state.today?.steps ?: 0L).toString(),
+                        current = "%,d".format(daily?.steps ?: 0L),
                         target = "10,000",
-                        progress = ((state.today?.steps ?: 0L) / 10_000f).coerceIn(0f, 1f),
+                        progress = ((daily?.steps ?: 0L) / 10_000f).coerceIn(0f, 1f),
                         accent = Accent,
-                        done = (state.today?.steps ?: 0L) >= 10_000,
+                        done = (daily?.steps ?: 0L) >= 10_000,
                     )
                     Spacer(Modifier.height(14.dp))
                     GoalRow(
                         label = "Active minutes",
-                        current = (state.today?.exerciseMinutes ?: 0L).toString(),
+                        current = (daily?.exerciseMinutes ?: 0L).toString(),
                         target = "30",
-                        progress = ((state.today?.exerciseMinutes ?: 0L) / 30f).coerceIn(0f, 1f),
+                        progress = ((daily?.exerciseMinutes ?: 0L) / 30f).coerceIn(0f, 1f),
                         accent = Sunflare,
-                        done = (state.today?.exerciseMinutes ?: 0L) >= 30,
+                        done = (daily?.exerciseMinutes ?: 0L) >= 30,
                     )
                     Spacer(Modifier.height(14.dp))
                     GoalRow(
                         label = "Calories",
-                        current = (state.today?.totalCalories ?: 0.0).toInt().toString(),
+                        current = "%,d".format((daily?.totalCalories ?: 0.0).toInt()),
                         target = "2,500",
-                        progress = ((state.today?.totalCalories ?: 0.0) / 2_500.0).toFloat().coerceIn(0f, 1f),
+                        progress = ((daily?.totalCalories ?: 0.0) / 2_500.0).toFloat().coerceIn(0f, 1f),
                         accent = Lavender,
-                        done = (state.today?.totalCalories ?: 0.0) >= 2_500,
+                        done = (daily?.totalCalories ?: 0.0) >= 2_500,
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    GoalRow(
+                        label = "Distance",
+                        current = "%.2f km".format((daily?.distanceMeters ?: 0.0) / 1000.0),
+                        target = "5 km",
+                        progress = (((daily?.distanceMeters ?: 0.0) / 1000.0) / 5.0).toFloat().coerceIn(0f, 1f),
+                        accent = Crimson,
+                        done = ((daily?.distanceMeters ?: 0.0) / 1000.0) >= 5.0,
                     )
                 }
             }
         }
     }
+}
+
+private fun dateHeadline(date: LocalDate): String {
+    val today = LocalDate.now()
+    return when (date) {
+        today -> "Today's\nprogress."
+        today.minusDays(1) -> "Yesterday's\nprogress."
+        else -> date.format(DateTimeFormatter.ofPattern("EEEE,\nMMM d", Locale.getDefault()))
+    }
+}
+
+private fun dateHeadlineShort(date: LocalDate): String {
+    val today = LocalDate.now()
+    return when (date) {
+        today -> "Today"
+        today.minusDays(1) -> "Yesterday"
+        else -> date.format(DateTimeFormatter.ofPattern("MMM d", Locale.getDefault()))
+    }
+}
+
+private fun prevLabel(date: LocalDate): String {
+    val today = LocalDate.now()
+    return when (date) {
+        today -> "yesterday"
+        today.minusDays(1) -> "2 days ago"
+        else -> "prev day"
+    }
+}
+
+private fun stepDelta(now: Long?, then: Long?): Pair<String?, Color> {
+    if (now == null || then == null || then <= 0L) return null to Color.Transparent
+    val pct = ((now - then).toDouble() / then * 100).toInt()
+    return when {
+        pct == 0 -> "On par" to TextSecondary
+        pct > 0 -> "+$pct% vs prev" to MintGlow
+        else -> "$pct% vs prev" to Crimson
+    }
+}
+
+private fun rangeBlurb(pct: Int): String = when {
+    pct >= 100 -> "Goal complete"
+    pct >= 70 -> "Almost there"
+    pct >= 40 -> "On your way"
+    pct > 0 -> "Just getting going"
+    else -> "Nothing yet"
+}
+
+private fun rangeSubtitle(steps: Long): String = when {
+    steps >= 10_000 -> "You hit your daily target."
+    steps > 0 -> "${10_000 - steps} steps to your goal."
+    else -> "Move around to start tracking."
 }
 
 @Composable
@@ -232,9 +315,10 @@ private fun WeeklyCalorieBars(state: ActivityState) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Bottom,
     ) {
-        val days = state.recent.reversed()
+        val days = state.recent
         days.forEach { day ->
             val ratio = (day.totalCalories / maxVal).toFloat().coerceIn(0.05f, 1f)
+            val isSelected = day.date == state.date
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Bottom,
@@ -250,9 +334,9 @@ private fun WeeklyCalorieBars(state: ActivityState) {
                     ) {
                         val r = size.width / 2f
                         drawRoundRect(
-                            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                                0.0f to Accent,
-                                1.0f to Accent.copy(alpha = 0.45f),
+                            brush = Brush.verticalGradient(
+                                0.0f to (if (isSelected) Accent else Accent.copy(alpha = 0.45f)),
+                                1.0f to (if (isSelected) Accent.copy(alpha = 0.65f) else Accent.copy(alpha = 0.18f)),
                             ),
                             size = Size(size.width, size.height),
                             cornerRadius = CornerRadius(r, r),
@@ -263,7 +347,7 @@ private fun WeeklyCalorieBars(state: ActivityState) {
                 Text(
                     text = day.date.dayOfMonth.toString(),
                     style = MaterialTheme.typography.labelSmall,
-                    color = TextMuted,
+                    color = if (isSelected) Accent else TextMuted,
                 )
             }
         }
@@ -331,20 +415,6 @@ private fun GoalRow(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun LegendDot(label: String, color: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .clip(CircleShape)
-                .background(color),
-        )
-        Spacer(Modifier.width(6.dp))
-        Text(label, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
     }
 }
 
