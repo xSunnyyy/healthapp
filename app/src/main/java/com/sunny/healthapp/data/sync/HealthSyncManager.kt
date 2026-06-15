@@ -12,6 +12,7 @@ import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
+import androidx.health.connect.client.records.metadata.DataOrigin
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.sunny.healthapp.data.db.HealthDatabase
 import com.sunny.healthapp.data.db.entities.DailySummaryEntity
@@ -33,7 +34,7 @@ import java.time.ZoneId
 sealed class SyncStatus {
     data object Idle : SyncStatus()
     data class Syncing(val progress: Float = 0f, val message: String = "Syncing") : SyncStatus()
-    data class Done(val at: Instant, val report: SyncReport) : SyncStatus()
+    data class Done(val at: Instant, val report: SyncReport, val source: String? = null) : SyncStatus()
     data class Error(val message: String?) : SyncStatus()
 }
 
@@ -49,18 +50,70 @@ class HealthSyncManager(
     private val _status = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
     val status: StateFlow<SyncStatus> = _status.asStateFlow()
 
+    @Volatile private var primaryOrigin: DataOrigin? = null
+    @Volatile private var availableOrigins: List<String> = emptyList()
+
+    /** The package name of the data source we're filtering by, e.g. "com.fitbit.FitbitMobile". */
+    fun primarySource(): String? = primaryOrigin?.packageName
+
+    /** Every distinct source seen in the last 7 days of steps data. */
+    fun availableSources(): List<String> = availableOrigins
+
     companion object {
         private const val TAG = "HealthSync"
         const val BACKFILL_DAYS = 365L
         const val INCREMENTAL_OVERLAP_DAYS = 2L
         private const val META_KEY = "global"
+
+        // Order of preference when picking a data source. First match wins.
+        private val PREFERRED_PACKAGE_PATTERNS = listOf(
+            "fitbit",        // com.fitbit.FitbitMobile, com.google.fitbit.*
+            "wearables",     // Google Pixel Watch wearable services
+            "googlefit",     // Google Fit fallback
+        )
+    }
+
+    /**
+     * Discover the dominant wearable-style data source so we read only from it
+     * (matching how Google Health picks one source instead of summing them).
+     */
+    private suspend fun discoverPrimaryOrigin(): DataOrigin? {
+        val window = TimeRangeFilter.between(
+            Instant.now().minus(Duration.ofDays(7)),
+            Instant.now(),
+        )
+        val records = hc.read(StepsRecord::class, window)
+        if (records.isEmpty()) return null
+
+        val origins = records.map { it.metadata.dataOrigin }.distinct()
+        availableOrigins = origins.map { it.packageName }
+        Log.i(TAG, "Data origins seen for steps: $availableOrigins")
+
+        // Prefer a wearable-style source in priority order
+        for (pattern in PREFERRED_PACKAGE_PATTERNS) {
+            val match = origins.firstOrNull { it.packageName.contains(pattern, ignoreCase = true) }
+            if (match != null) {
+                Log.i(TAG, "Picked primary origin by pattern '$pattern': ${match.packageName}")
+                return match
+            }
+        }
+
+        // No known wearable — fall back to the origin contributing the most records
+        val top = records.groupingBy { it.metadata.dataOrigin }.eachCount()
+            .maxByOrNull { it.value }?.key
+        Log.i(TAG, "Picked primary origin by record count: ${top?.packageName}")
+        return top
     }
 
     suspend fun syncAll(force: Boolean = false): SyncReport {
         _status.value = SyncStatus.Syncing(progress = 0f, message = "Reading Health Connect…")
         try {
             val report = doSync(force)
-            _status.value = SyncStatus.Done(Instant.now(), report)
+            _status.value = SyncStatus.Done(
+                at = Instant.now(),
+                report = report,
+                source = primaryOrigin?.packageName,
+            )
             return report
         } catch (e: Exception) {
             _status.value = SyncStatus.Error(e.message)
@@ -73,6 +126,11 @@ class HealthSyncManager(
         val now = Instant.now()
         val today = LocalDate.now()
         val zone = ZoneId.systemDefault()
+
+        // Pick the data source once at the start of the sync. Cached on the
+        // instance so per-day calls all use the same filter.
+        primaryOrigin = discoverPrimaryOrigin()
+        val originFilter: Set<DataOrigin> = primaryOrigin?.let { setOf(it) } ?: emptySet()
 
         val from: LocalDate = if (force || state?.lastFullSyncAt == null) {
             today.minusDays(BACKFILL_DAYS)
@@ -107,11 +165,11 @@ class HealthSyncManager(
             val range = TimeRangeFilter.between(dayStart, dayEnd)
 
             try {
-                // Use HC's aggregate API for sums — it dedupes across sources the
-                // same way Google Health does, so totals match instead of being
-                // double-counted when Fitbit + phone both write the same metric.
+                // Aggregate ONLY from the primary data source we discovered so
+                // totals match Google Health's pick-one-source behavior instead
+                // of summing Fitbit + phone pedometer + Google Fit etc.
                 val agg = hc.aggregate(
-                    setOf(
+                    metrics = setOf(
                         StepsRecord.COUNT_TOTAL,
                         ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL,
                         TotalCaloriesBurnedRecord.ENERGY_TOTAL,
@@ -122,7 +180,8 @@ class HealthSyncManager(
                         HeartRateRecord.BPM_MAX,
                         RestingHeartRateRecord.BPM_AVG,
                     ),
-                    range,
+                    range = range,
+                    dataOriginFilter = originFilter,
                 )
 
                 val steps = agg?.get(StepsRecord.COUNT_TOTAL) ?: 0L
@@ -135,11 +194,11 @@ class HealthSyncManager(
                 val aggMaxHr = agg?.get(HeartRateRecord.BPM_MAX)?.toInt()
                 val aggRhr = agg?.get(RestingHeartRateRecord.BPM_AVG)?.toInt()
 
-                val exerciseMin = hc.read(ExerciseSessionRecord::class, range)
+                val exerciseMin = hc.read(ExerciseSessionRecord::class, range, originFilter)
                     .sumOf { Duration.between(it.startTime, it.endTime).toMinutes() }
 
                 // Pull raw HR samples for charting (aggregate doesn't include time-series)
-                val hrRecords = hc.read(HeartRateRecord::class, range)
+                val hrRecords = hc.read(HeartRateRecord::class, range, originFilter)
                 val samplesInDay = hrRecords.flatMap { r ->
                     r.samples.map { it.time to it.beatsPerMinute.toInt() }
                 }.sortedBy { it.first }
@@ -166,7 +225,7 @@ class HealthSyncManager(
                     hrWritten += samplesInDay.size
                 }
 
-                val hrvSamples = hc.read(HeartRateVariabilityRmssdRecord::class, range)
+                val hrvSamples = hc.read(HeartRateVariabilityRmssdRecord::class, range, originFilter)
                 if (hrvSamples.isNotEmpty()) {
                     db.hrvSampleDao().insertAll(
                         hrvSamples.map { HrvSampleEntity(it.time, it.heartRateVariabilityMillis) }
@@ -174,7 +233,7 @@ class HealthSyncManager(
                     hrvWritten += hrvSamples.size
                 }
 
-                val spo2Samples = hc.read(OxygenSaturationRecord::class, range)
+                val spo2Samples = hc.read(OxygenSaturationRecord::class, range, originFilter)
                 if (spo2Samples.isNotEmpty()) {
                     db.spo2SampleDao().insertAll(
                         spo2Samples.map { Spo2SampleEntity(it.time, it.percentage.value) }
@@ -196,7 +255,7 @@ class HealthSyncManager(
                 from.atStartOfDay(zone).toInstant(),
                 today.plusDays(1).atStartOfDay(zone).toInstant(),
             )
-            val sessions = hc.read(SleepSessionRecord::class, fullRange)
+            val sessions = hc.read(SleepSessionRecord::class, fullRange, originFilter)
             sessions.forEach { s ->
                 // Sum precise Durations, then convert to minutes once at the end —
                 // prevents the per-segment truncation that caused 1h54m vs 1h56m mismatches.
@@ -213,13 +272,13 @@ class HealthSyncManager(
                 val tib = Duration.between(s.startTime, s.endTime).toMinutes()
 
                 val sessionRange = TimeRangeFilter.between(s.startTime, s.endTime)
-                val sleepHr = hc.read(HeartRateRecord::class, sessionRange)
+                val sleepHr = hc.read(HeartRateRecord::class, sessionRange, originFilter)
                     .flatMap { it.samples }.map { it.beatsPerMinute.toInt() }
                     .takeIf { it.isNotEmpty() }?.average()?.toInt()
-                val sleepHrv = hc.read(HeartRateVariabilityRmssdRecord::class, sessionRange)
+                val sleepHrv = hc.read(HeartRateVariabilityRmssdRecord::class, sessionRange, originFilter)
                     .map { it.heartRateVariabilityMillis }
                     .takeIf { it.isNotEmpty() }?.average()
-                val sleepSpo2 = hc.read(OxygenSaturationRecord::class, sessionRange)
+                val sleepSpo2 = hc.read(OxygenSaturationRecord::class, sessionRange, originFilter)
                     .map { it.percentage.value }
                     .takeIf { it.isNotEmpty() }?.average()
 

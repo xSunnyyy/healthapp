@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.records.Record
+import androidx.health.connect.client.records.metadata.DataOrigin
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
@@ -37,18 +38,34 @@ class HealthConnectManager(private val context: Context) {
     suspend fun <T : Record> read(
         type: KClass<T>,
         range: TimeRangeFilter,
+        dataOriginFilter: Set<DataOrigin> = emptySet(),
     ): List<T> {
         val c = client ?: return emptyList()
         return runCatching {
-            c.readRecords(ReadRecordsRequest(recordType = type, timeRangeFilter = range)).records
+            c.readRecords(
+                ReadRecordsRequest(
+                    recordType = type,
+                    timeRangeFilter = range,
+                    dataOriginFilter = dataOriginFilter,
+                )
+            ).records
         }.getOrDefault(emptyList())
     }
 
     suspend fun aggregate(
         metrics: Set<AggregateMetric<*>>,
         range: TimeRangeFilter,
+        dataOriginFilter: Set<DataOrigin> = emptySet(),
     ): AggregationResult? {
         val c = client ?: return null
-        return runCatching { c.aggregate(AggregateRequest(metrics, range)) }.getOrNull()
+        return runCatching {
+            c.aggregate(
+                AggregateRequest(
+                    metrics = metrics,
+                    timeRangeFilter = range,
+                    dataOriginFilter = dataOriginFilter,
+                )
+            )
+        }.getOrNull()
     }
 }
