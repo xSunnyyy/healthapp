@@ -56,6 +56,15 @@ class HealthRepository(
         return s.toDomain(stages)
     }
 
+    /** All sleep sessions whose end time falls in [from, to). Newest first. */
+    suspend fun sleepSessionsRange(from: Instant, to: Instant): List<SleepSummary> =
+        db.sleepDao().range(from, to)
+            .sortedByDescending { it.end }
+            .map { session ->
+                val stages = db.sleepDao().stagesFor(session.id)
+                session.toDomain(stages)
+            }
+
     suspend fun sleepOnDate(date: LocalDate, zone: ZoneId = ZoneId.systemDefault()): SleepSummary? {
         // Find the sleep session whose "wake time" lands on this date.
         val windowStart = date.minusDays(1).atStartOfDay(zone).toInstant()

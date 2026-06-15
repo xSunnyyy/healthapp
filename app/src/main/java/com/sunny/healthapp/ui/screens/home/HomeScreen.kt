@@ -87,25 +87,22 @@ private fun HomeContent(
             .padding(top = statusInset + 12.dp, bottom = 130.dp),
     ) {
         StaggeredEnter(index = 0) { m ->
-            Column(modifier = m.padding(horizontal = 20.dp).fillMaxWidth()) {
+            Row(
+                modifier = m.padding(horizontal = 20.dp).fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 DateScrubber(
                     date = state.date,
                     onPrevious = { vm.previous() },
                     onNext = { vm.next() },
                     onJumpToToday = { vm.goToDate(java.time.LocalDate.now()) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.weight(1f),
                 )
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    com.sunny.healthapp.ui.components.SyncIndicator(
-                        status = syncStatus,
-                        onClick = { vm.manualSync() },
-                    )
-                }
+                com.sunny.healthapp.ui.components.SyncDot(
+                    status = syncStatus,
+                    onClick = { vm.manualSync() },
+                )
             }
         }
 

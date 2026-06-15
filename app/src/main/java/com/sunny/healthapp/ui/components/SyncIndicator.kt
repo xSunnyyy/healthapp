@@ -1,18 +1,25 @@
 package com.sunny.healthapp.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
@@ -27,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.sunny.healthapp.data.sync.SyncStatus
 import com.sunny.healthapp.ui.theme.Accent
@@ -35,10 +41,7 @@ import com.sunny.healthapp.ui.theme.Crimson
 import com.sunny.healthapp.ui.theme.EdgeSoft
 import com.sunny.healthapp.ui.theme.Ink800
 import com.sunny.healthapp.ui.theme.MintGlow
-import com.sunny.healthapp.ui.theme.TextMuted
 import com.sunny.healthapp.ui.theme.TextSecondary
-import java.time.Duration
-import java.time.Instant
 
 @Composable
 fun SyncIndicator(
@@ -62,49 +65,87 @@ fun SyncIndicator(
         v
     } else 0f
 
-    val (icon, tint, label) = when (status) {
-        is SyncStatus.Syncing -> Triple(Icons.Outlined.Sync, Accent, status.message)
-        is SyncStatus.Done -> Triple(
-            Icons.Outlined.Check,
-            MintGlow,
-            "Synced ${relative(status.at)}",
-        )
-        is SyncStatus.Error -> Triple(Icons.Outlined.ErrorOutline, Crimson, "Sync failed")
-        SyncStatus.Idle -> Triple(Icons.Outlined.Sync, TextSecondary, "Tap to sync")
+    val (icon, tint) = when (status) {
+        is SyncStatus.Syncing -> Icons.Outlined.Sync to Accent
+        is SyncStatus.Done -> Icons.Outlined.Check to MintGlow
+        is SyncStatus.Error -> Icons.Outlined.ErrorOutline to Crimson
+        SyncStatus.Idle -> Icons.Outlined.Sync to TextSecondary
     }
 
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(28.dp))
+            .clip(CircleShape)
             .background(Ink800.copy(alpha = 0.7f))
-            .border(0.6.dp, EdgeSoft, RoundedCornerShape(28.dp))
+            .border(0.6.dp, EdgeSoft, CircleShape)
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = label,
+            contentDescription = "Sync",
             tint = tint,
             modifier = Modifier
                 .size(16.dp)
                 .rotate(rotation),
         )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = tint,
-        )
+        // Only show the label while actively syncing — otherwise just an icon pill.
+        AnimatedVisibility(
+            visible = isSyncing,
+            enter = fadeIn() + expandHorizontally(),
+            exit = fadeOut() + shrinkHorizontally(),
+        ) {
+            val msg = (status as? SyncStatus.Syncing)?.message ?: "Syncing"
+            Text(
+                text = msg,
+                style = MaterialTheme.typography.labelSmall,
+                color = tint,
+            )
+        }
     }
 }
 
-private fun relative(at: Instant): String {
-    val mins = Duration.between(at, Instant.now()).toMinutes()
-    return when {
-        mins < 1 -> "now"
-        mins < 60 -> "${mins}m ago"
-        mins < 24 * 60 -> "${mins / 60}h ago"
-        else -> "${mins / 1440}d ago"
+@Composable
+fun SyncDot(
+    status: SyncStatus,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // Even more compact: just a single circular icon button.
+    val (icon, tint) = when (status) {
+        is SyncStatus.Syncing -> Icons.Outlined.Sync to Accent
+        is SyncStatus.Done -> Icons.Outlined.Check to MintGlow
+        is SyncStatus.Error -> Icons.Outlined.ErrorOutline to Crimson
+        SyncStatus.Idle -> Icons.Outlined.Sync to TextSecondary
+    }
+    val rotation = if (status is SyncStatus.Syncing) {
+        val transition = rememberInfiniteTransition(label = "dotSpin")
+        val v by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 1100, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart,
+            ),
+            label = "dotSpinV",
+        )
+        v
+    } else 0f
+    Box(
+        modifier = modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(Ink800.copy(alpha = 0.7f))
+            .border(0.6.dp, EdgeSoft, CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = "Sync",
+            tint = tint,
+            modifier = Modifier.size(18.dp).rotate(rotation),
+        )
     }
 }
