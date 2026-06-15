@@ -107,27 +107,20 @@ private fun Content(
                 .verticalScroll(rememberScrollState())
                 .padding(top = statusInset + 12.dp, bottom = 130.dp),
         ) {
-            // Top-right header strip: TodayChip (only when off-today) + small SyncDot
             StaggeredEnter(0) { m ->
-                Row(
-                    modifier = m.padding(horizontal = 20.dp).fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (!isToday) {
-                        TodayChip(onClick = { onSelectDate(today) })
-                        Spacer(Modifier.width(8.dp))
-                    }
-                    SyncDot(status = sync, onClick = onSync, size = 30.dp)
-                }
-            }
-            Spacer(Modifier.height(6.dp))
-
-            StaggeredEnter(1) { m ->
                 EditorialHeader(
                     eyebrow = "Progress tracking",
                     title = dateHeadline(state.date),
                     modifier = m,
+                    trailing = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (!isToday) {
+                                TodayChip(onClick = { onSelectDate(today) })
+                                Spacer(Modifier.width(8.dp))
+                            }
+                            SyncDot(status = sync, onClick = onSync, size = 28.dp)
+                        }
+                    },
                 )
             }
             Spacer(Modifier.height(14.dp))
