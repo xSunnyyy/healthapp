@@ -19,6 +19,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,21 +28,36 @@ import androidx.compose.ui.unit.dp
 import com.sunny.healthapp.HealthApp
 import com.sunny.healthapp.data.health.HealthConnectAvailability
 import com.sunny.healthapp.data.health.HealthPermissions
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @Composable
 fun PermissionGate(content: @Composable () -> Unit) {
     val ctx = LocalContext.current
     val app = ctx.applicationContext as HealthApp
+    val scope = rememberCoroutineScope()
     var granted by remember { mutableStateOf<Boolean?>(null) }
 
     val launcher = rememberLauncherForActivityResult(
         contract = app.healthConnect.permissionContract,
     ) { result ->
-        granted = result.containsAll(HealthPermissions.READ)
+        val ok = result.containsAll(HealthPermissions.READ)
+        granted = ok
+        if (ok) {
+            scope.launch(Dispatchers.IO) {
+                runCatching { app.syncManager.syncAll(force = true) }
+            }
+        }
     }
 
     LaunchedEffect(Unit) {
-        granted = app.healthConnect.hasAllPermissions()
+        val ok = app.healthConnect.hasAllPermissions()
+        granted = ok
+        if (ok) {
+            scope.launch(Dispatchers.IO) {
+                runCatching { app.syncManager.syncAll(force = false) }
+            }
+        }
     }
 
     when {
