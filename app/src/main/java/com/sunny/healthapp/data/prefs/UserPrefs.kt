@@ -5,7 +5,8 @@ data class UserPrefs(
     val stepsGoal: Int = 10_000,
     val caloriesGoal: Int = 2_500,
     val activeMinutesGoal: Int = 30,
-    val distanceGoalKm: Float = 5.0f,
+    /** Daily distance goal in miles. Stored as miles for display parity. */
+    val distanceGoalMiles: Float = 3.0f,
     /** When non-null, sync filters everything through this exact package name. */
     val preferredOrigin: String? = null,
 )

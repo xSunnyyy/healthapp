@@ -237,37 +237,39 @@ private fun Content(
                     GoalRow(
                         label = "Steps",
                         current = "%,d".format(daily?.steps ?: 0L),
-                        target = "10,000",
-                        progress = ((daily?.steps ?: 0L) / 10_000f).coerceIn(0f, 1f),
+                        target = "%,d".format(state.stepsGoal),
+                        progress = ((daily?.steps ?: 0L) / state.stepsGoal.toFloat()).coerceIn(0f, 1f),
                         accent = Accent,
-                        done = (daily?.steps ?: 0L) >= 10_000,
+                        done = (daily?.steps ?: 0L) >= state.stepsGoal,
                     )
                     Spacer(Modifier.height(14.dp))
                     GoalRow(
                         label = "Active minutes",
                         current = (daily?.exerciseMinutes ?: 0L).toString(),
-                        target = "30",
-                        progress = ((daily?.exerciseMinutes ?: 0L) / 30f).coerceIn(0f, 1f),
+                        target = state.activeMinutesGoal.toString(),
+                        progress = ((daily?.exerciseMinutes ?: 0L) / state.activeMinutesGoal.toFloat()).coerceIn(0f, 1f),
                         accent = Sunflare,
-                        done = (daily?.exerciseMinutes ?: 0L) >= 30,
+                        done = (daily?.exerciseMinutes ?: 0L) >= state.activeMinutesGoal,
                     )
                     Spacer(Modifier.height(14.dp))
                     GoalRow(
                         label = "Calories",
                         current = "%,d".format((daily?.totalCalories ?: 0.0).toInt()),
-                        target = "2,500",
-                        progress = ((daily?.totalCalories ?: 0.0) / 2_500.0).toFloat().coerceIn(0f, 1f),
+                        target = "%,d".format(state.caloriesGoal),
+                        progress = ((daily?.totalCalories ?: 0.0) / state.caloriesGoal.toDouble()).toFloat().coerceIn(0f, 1f),
                         accent = Lavender,
-                        done = (daily?.totalCalories ?: 0.0) >= 2_500,
+                        done = (daily?.totalCalories ?: 0.0) >= state.caloriesGoal,
                     )
                     Spacer(Modifier.height(14.dp))
+                    val distanceMi = com.sunny.healthapp.util.Units.metersToMiles(daily?.distanceMeters ?: 0.0)
+                    val distanceGoalMi = state.distanceGoalMiles.toDouble()
                     GoalRow(
                         label = "Distance",
-                        current = "%.2f km".format((daily?.distanceMeters ?: 0.0) / 1000.0),
-                        target = "5 km",
-                        progress = (((daily?.distanceMeters ?: 0.0) / 1000.0) / 5.0).toFloat().coerceIn(0f, 1f),
+                        current = "%.2f mi".format(distanceMi),
+                        target = "%.1f mi".format(distanceGoalMi),
+                        progress = (distanceMi / distanceGoalMi).toFloat().coerceIn(0f, 1f),
                         accent = Crimson,
-                        done = ((daily?.distanceMeters ?: 0.0) / 1000.0) >= 5.0,
+                        done = distanceMi >= distanceGoalMi,
                     )
                 }
             }
