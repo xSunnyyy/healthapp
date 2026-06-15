@@ -76,12 +76,13 @@ fun GradientTile(
                 .padding(start = 14.dp, end = 14.dp, top = 12.dp)
                 .fillMaxWidth(),
         )
-        // Value perfectly centered
+        // Value perfectly centered — bigger and more visible
         Text(
             text = value,
             style = MaterialTheme.typography.headlineSmall.copy(
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Light,
+                fontSize = 30.sp,
+                fontWeight = FontWeight.Normal,
+                letterSpacing = (-0.5).sp,
             ),
             color = Color.White,
             maxLines = 1,
@@ -90,7 +91,7 @@ fun GradientTile(
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .align(Alignment.Center)
-                .padding(horizontal = 6.dp)
+                .padding(horizontal = 4.dp)
                 .fillMaxWidth(),
         )
         // Delta pinned to bottom-left
@@ -115,10 +116,10 @@ fun GradientTileRow(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth().height(124.dp),
+        modifier = modifier.fillMaxWidth().height(140.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        tiles.forEach { tile -> tile(Modifier.weight(1f).height(124.dp)) }
+        tiles.forEach { tile -> tile(Modifier.weight(1f).height(140.dp)) }
     }
 }
