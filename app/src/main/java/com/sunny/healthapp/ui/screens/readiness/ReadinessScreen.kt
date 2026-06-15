@@ -99,20 +99,19 @@ private fun Content(
                 modifier = m,
             )
         }
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(20.dp))
         StaggeredEnter(1) { m ->
             Row(
                 modifier = m.padding(horizontal = 20.dp).fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                PeriodTabs(
+                    selected = state.period,
+                    onSelect = onSetPeriod,
+                    modifier = Modifier.weight(1f),
+                )
                 SyncDot(status = sync, onClick = onSync, size = 30.dp)
-            }
-        }
-        Spacer(Modifier.height(14.dp))
-
-        StaggeredEnter(2) { m ->
-            Box(modifier = m.padding(horizontal = 20.dp)) {
-                PeriodTabs(selected = state.period, onSelect = onSetPeriod)
             }
         }
         Spacer(Modifier.height(18.dp))
