@@ -7,6 +7,7 @@ import com.sunny.healthapp.data.db.HealthDatabase
 import com.sunny.healthapp.data.health.HealthConnectAvailability
 import com.sunny.healthapp.data.health.HealthConnectManager
 import com.sunny.healthapp.data.health.HealthRepository
+import com.sunny.healthapp.data.prefs.UserPrefsRepository
 import com.sunny.healthapp.data.sync.HealthSyncManager
 import com.sunny.healthapp.data.sync.HealthSyncWorker
 import kotlinx.coroutines.CoroutineScope
@@ -20,6 +21,8 @@ class HealthApp : Application(), Configuration.Provider {
         private set
     lateinit var database: HealthDatabase
         private set
+    lateinit var prefs: UserPrefsRepository
+        private set
     lateinit var syncManager: HealthSyncManager
         private set
     lateinit var repository: HealthRepository
@@ -27,10 +30,10 @@ class HealthApp : Application(), Configuration.Provider {
 
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    fun triggerManualSync() {
+    fun triggerManualSync(force: Boolean = false) {
         appScope.launch {
             try {
-                if (healthConnect.hasAllPermissions()) syncManager.syncAll(force = false)
+                if (healthConnect.hasAllPermissions()) syncManager.syncAll(force = force)
             } catch (e: Exception) {
                 Log.w("HealthApp", "Manual sync failed", e)
             }
@@ -46,10 +49,10 @@ class HealthApp : Application(), Configuration.Provider {
         super.onCreate()
         healthConnect = HealthConnectManager(this)
         database = HealthDatabase.get(this)
-        syncManager = HealthSyncManager(healthConnect, database)
+        prefs = UserPrefsRepository(this)
+        syncManager = HealthSyncManager(healthConnect, database, prefs)
         repository = HealthRepository(healthConnect, database)
 
-        // Schedule periodic background sync and kick an immediate one if HC is ready.
         HealthSyncWorker.schedule(this)
         appScope.launch {
             try {

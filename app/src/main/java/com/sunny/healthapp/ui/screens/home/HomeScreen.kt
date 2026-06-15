@@ -2,6 +2,9 @@ package com.sunny.healthapp.ui.screens.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,6 +47,7 @@ import com.sunny.healthapp.ui.components.BarChart7Day
 import com.sunny.healthapp.ui.components.BarPoint
 import com.sunny.healthapp.ui.components.DateScrubber
 import com.sunny.healthapp.ui.components.EditorialHeader
+import com.sunny.healthapp.ui.components.InsightsPanel
 import com.sunny.healthapp.ui.components.MiniArea
 import com.sunny.healthapp.ui.components.MiniBars
 import com.sunny.healthapp.ui.components.MiniSleepStrip
@@ -115,6 +119,7 @@ private fun HomeContent(
                     onClick = { vm.manualSync() },
                     size = 30.dp,
                 )
+                SettingsIcon(onClick = { onNavigate("settings") })
             }
         }
 
@@ -179,6 +184,15 @@ private fun HomeContent(
         StaggeredEnter(index = 5) { m ->
             Box(modifier = m.padding(horizontal = 20.dp)) {
                 ReadinessPanel(state)
+            }
+        }
+
+        state.insights?.let { insights ->
+            Spacer(Modifier.height(16.dp))
+            StaggeredEnter(index = 6) { m ->
+                Box(modifier = m.padding(horizontal = 20.dp)) {
+                    InsightsPanel(insights = insights)
+                }
             }
         }
     }
@@ -522,6 +536,24 @@ private fun formatSleepShort(minutes: Long): String {
     val h = minutes / 60
     val m = minutes % 60
     return "${h}:%02d".format(m)
+}
+
+@Composable
+private fun SettingsIcon(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(30.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Settings,
+            contentDescription = "Settings",
+            tint = TextSecondary,
+            modifier = Modifier.size(18.dp),
+        )
+    }
 }
 
 private fun deltaPct(current: Double?, previous: Double?): String? {

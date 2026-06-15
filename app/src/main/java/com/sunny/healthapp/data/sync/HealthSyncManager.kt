@@ -23,6 +23,7 @@ import com.sunny.healthapp.data.db.entities.SleepStageEntity
 import com.sunny.healthapp.data.db.entities.Spo2SampleEntity
 import com.sunny.healthapp.data.db.entities.SyncStateEntity
 import com.sunny.healthapp.data.health.HealthConnectManager
+import com.sunny.healthapp.data.prefs.UserPrefsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,6 +47,7 @@ sealed class SyncStatus {
 class HealthSyncManager(
     private val hc: HealthConnectManager,
     private val db: HealthDatabase,
+    private val prefs: UserPrefsRepository? = null,
 ) {
     private val _status = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
     val status: StateFlow<SyncStatus> = _status.asStateFlow()
@@ -89,7 +91,18 @@ class HealthSyncManager(
         availableOrigins = origins.map { it.packageName }
         Log.i(TAG, "Data origins seen for steps: $availableOrigins")
 
-        // Prefer a wearable-style source in priority order
+        // 1) Honor the user's explicit override if it's actually present.
+        val override = prefs?.current()?.preferredOrigin
+        if (override != null) {
+            val match = origins.firstOrNull { it.packageName == override }
+            if (match != null) {
+                Log.i(TAG, "Picked primary origin by user override: ${match.packageName}")
+                return match
+            }
+            Log.w(TAG, "User override $override not present; falling back to auto-detect")
+        }
+
+        // 2) Prefer a wearable-style source in priority order.
         for (pattern in PREFERRED_PACKAGE_PATTERNS) {
             val match = origins.firstOrNull { it.packageName.contains(pattern, ignoreCase = true) }
             if (match != null) {
@@ -98,7 +111,7 @@ class HealthSyncManager(
             }
         }
 
-        // No known wearable — fall back to the origin contributing the most records
+        // 3) No known wearable — fall back to the origin contributing the most records.
         val top = records.groupingBy { it.metadata.dataOrigin }.eachCount()
             .maxByOrNull { it.value }?.key
         Log.i(TAG, "Picked primary origin by record count: ${top?.packageName}")

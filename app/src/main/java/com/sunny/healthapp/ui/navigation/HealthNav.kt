@@ -24,6 +24,7 @@ import com.sunny.healthapp.ui.components.NavItem
 import com.sunny.healthapp.ui.screens.activity.ActivityScreen
 import com.sunny.healthapp.ui.screens.home.HomeScreen
 import com.sunny.healthapp.ui.screens.readiness.ReadinessScreen
+import com.sunny.healthapp.ui.screens.settings.SettingsScreen
 import com.sunny.healthapp.ui.screens.sleep.SleepScreen
 import com.sunny.healthapp.ui.theme.ActivityGreen
 import com.sunny.healthapp.ui.theme.ReadinessLilac
@@ -61,7 +62,9 @@ fun HealthNavHost() {
             ) {
                 composable(HealthDest.Home.route) {
                     HomeScreen(onNavigate = { route ->
-                        if (HealthDest.entries.any { it.route == route }) {
+                        if (route == "settings") {
+                            navController.navigate("settings")
+                        } else if (HealthDest.entries.any { it.route == route }) {
                             navController.navigate(route) {
                                 popUpTo(HealthDest.Home.route) { saveState = true }
                                 launchSingleTop = true
@@ -73,23 +76,29 @@ fun HealthNavHost() {
                 composable(HealthDest.Sleep.route) { SleepScreen() }
                 composable(HealthDest.Readiness.route) { ReadinessScreen() }
                 composable(HealthDest.Activity.route) { ActivityScreen() }
+                composable("settings") {
+                    SettingsScreen(onBack = { navController.popBackStack() })
+                }
             }
-            FloatingNavBar(
-                items = items,
-                selectedKey = backStack?.destination?.hierarchy?.firstOrNull { node ->
-                    items.any { it.key == node.route }
-                }?.route,
-                onSelect = { item ->
-                    if (currentRoute != item.key) {
-                        navController.navigate(item.key) {
-                            popUpTo(HealthDest.Home.route) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
+            // Hide the floating nav on full-screen routes that need their own back-stack feel.
+            if (currentRoute !in setOf("settings")) {
+                FloatingNavBar(
+                    items = items,
+                    selectedKey = backStack?.destination?.hierarchy?.firstOrNull { node ->
+                        items.any { it.key == node.route }
+                    }?.route,
+                    onSelect = { item ->
+                        if (currentRoute != item.key) {
+                            navController.navigate(item.key) {
+                                popUpTo(HealthDest.Home.route) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         }
-                    }
-                },
-                modifier = Modifier.align(Alignment.BottomCenter),
-            )
+                    },
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
+            }
         }
     }
 }
