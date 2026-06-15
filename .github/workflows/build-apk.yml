@@ -23,14 +23,15 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Gradle
+      # Installs Gradle on the runner and adds it to PATH, so we can call
+      # `gradle ...` directly — no committed gradle-wrapper.jar needed.
+      - name: Set up Gradle 8.11.1
         uses: gradle/actions/setup-gradle@v3
-
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
+        with:
+          gradle-version: "8.11.1"
 
       - name: Build debug APK
-        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
 
       - name: Rename APK with short SHA
         run: |
