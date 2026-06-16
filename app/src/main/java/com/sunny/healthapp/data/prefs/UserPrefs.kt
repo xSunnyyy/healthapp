@@ -9,4 +9,10 @@ data class UserPrefs(
     val distanceGoalMiles: Float = 3.0f,
     /** When non-null, sync filters everything through this exact package name. */
     val preferredOrigin: String? = null,
+    /**
+     * When true, sync fills steps & distance from the phone pedometer for
+     * hours where Fitbit recorded zero (e.g. watch wasn't worn). HR, HRV,
+     * SpO2 and sleep stay strict Fitbit-only regardless.
+     */
+    val phoneFillEnabled: Boolean = false,
 )

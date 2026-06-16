@@ -28,6 +28,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -110,10 +112,19 @@ fun SettingsScreen(onBack: () -> Unit) {
                 Text("Reading from", style = MaterialTheme.typography.labelMedium, color = TextMuted)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = state.activeSource ?: "No Fitbit source yet",
+                    text = state.activeSource
+                        ?.let { com.sunny.healthapp.util.Sources.friendly(it) }
+                        ?: "No Fitbit source yet",
                     style = MaterialTheme.typography.titleMedium,
                     color = TextPrimary,
                 )
+                if (state.activeSource != null) {
+                    Text(
+                        text = state.activeSource!!,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextMuted,
+                    )
+                }
                 if (state.prefs.preferredOrigin != null) {
                     Text(
                         "User override",
@@ -150,6 +161,43 @@ fun SettingsScreen(onBack: () -> Unit) {
                             color = TextSecondary,
                         )
                     }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        // --- Phone fill-in toggle ---
+        SectionLabel("Smart fill-in")
+        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+            Panel(modifier = Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Fill steps & distance from phone",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = TextPrimary,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "For hours when your Fitbit wasn't on your wrist, add the " +
+                                "phone pedometer's steps & distance. HR, HRV, SpO₂ and " +
+                                "sleep always stay strict Fitbit-only.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary,
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Switch(
+                        checked = state.prefs.phoneFillEnabled,
+                        onCheckedChange = { vm.setPhoneFillEnabled(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.Black,
+                            checkedTrackColor = Accent,
+                            uncheckedThumbColor = TextMuted,
+                            uncheckedTrackColor = Ink800,
+                        ),
+                    )
                 }
             }
         }
@@ -365,14 +413,22 @@ private fun SourcePickerDialog(
                             .padding(vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
-                            text = pkg,
-                            color = TextPrimary,
-                            modifier = Modifier.weight(1f),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = com.sunny.healthapp.util.Sources.friendly(pkg),
+                                color = TextPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            Text(
+                                text = pkg,
+                                color = TextMuted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        }
                         if (isPicked) {
                             Icon(
                                 Icons.Outlined.Check,

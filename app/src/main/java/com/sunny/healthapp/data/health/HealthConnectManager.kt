@@ -5,11 +5,13 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.metadata.DataOrigin
+import androidx.health.connect.client.request.AggregateGroupByDurationRequest
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.health.connect.client.aggregate.AggregationResult
 import androidx.health.connect.client.aggregate.AggregateMetric
+import java.time.Duration
 import kotlin.reflect.KClass
 
 enum class HealthConnectAvailability { Installed, ProviderUpdateRequired, NotSupported }
@@ -67,5 +69,28 @@ class HealthConnectManager(private val context: Context) {
                 )
             )
         }.getOrNull()
+    }
+
+    /**
+     * Bucketed aggregate — returns per-slice results so callers can merge
+     * across data sources. Used by phone-fill mode for steps/distance.
+     */
+    suspend fun aggregateByDuration(
+        metrics: Set<AggregateMetric<*>>,
+        range: TimeRangeFilter,
+        slicer: Duration,
+        dataOriginFilter: Set<DataOrigin> = emptySet(),
+    ): List<androidx.health.connect.client.aggregate.AggregationResultGroupedByDuration> {
+        val c = client ?: return emptyList()
+        return runCatching {
+            c.aggregateGroupByDuration(
+                AggregateGroupByDurationRequest(
+                    metrics = metrics,
+                    timeRangeFilter = range,
+                    timeRangeSlicer = slicer,
+                    dataOriginFilter = dataOriginFilter,
+                )
+            )
+        }.getOrDefault(emptyList())
     }
 }
