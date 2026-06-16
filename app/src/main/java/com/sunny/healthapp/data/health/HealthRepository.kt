@@ -50,6 +50,37 @@ class HealthRepository(
     suspend fun hrSamples(from: Instant, to: Instant): List<HrSample> =
         db.hrSampleDao().range(from, to).map { HrSample(it.time, it.bpm) }
 
+    /** Average HRV across the last [days] nights of sleep sessions. */
+    suspend fun hrvBaseline(days: Int = 14): Double? {
+        val now = Instant.now()
+        val from = now.minus(Duration.ofDays(days.toLong()))
+        val sessions = db.sleepDao().range(from, now)
+        val values = sessions.mapNotNull { it.avgHrvMs }
+        return if (values.isEmpty()) null else values.average()
+    }
+
+    /** Average resting HR across the last [days] daily summaries. */
+    suspend fun rhrBaseline(days: Int = 14): Int? {
+        val today = LocalDate.now()
+        val from = today.minusDays(days.toLong())
+        val values = db.dailySummaryDao().range(from, today).mapNotNull { it.restingHeartRate }
+        return if (values.isEmpty()) null else values.average().toInt()
+    }
+
+    /** Median bedtime over the last [days] sleep sessions. */
+    suspend fun bedtimeAverage(zone: ZoneId = ZoneId.systemDefault(), days: Int = 7): java.time.LocalTime? {
+        val now = Instant.now()
+        val from = now.minus(Duration.ofDays(days.toLong()))
+        val sessions = db.sleepDao().range(from, now)
+        if (sessions.isEmpty()) return null
+        val avgMinutes = sessions
+            .map { it.start.atZone(zone).toLocalTime() }
+            .map { it.hour * 60 + it.minute }
+            .average()
+            .toInt()
+        return java.time.LocalTime.of((avgMinutes / 60) % 24, avgMinutes % 60)
+    }
+
     suspend fun lastNightSleep(zone: ZoneId = ZoneId.systemDefault()): SleepSummary? {
         val s = db.sleepDao().latest() ?: return null
         val stages = db.sleepDao().stagesFor(s.id)

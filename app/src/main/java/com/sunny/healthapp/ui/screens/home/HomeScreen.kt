@@ -48,6 +48,7 @@ import com.sunny.healthapp.ui.components.BarChart7Day
 import com.sunny.healthapp.ui.components.BarPoint
 import com.sunny.healthapp.ui.components.DateScrubber
 import com.sunny.healthapp.ui.components.EditorialHeader
+import com.sunny.healthapp.ui.components.BodyBatteryPanel
 import com.sunny.healthapp.ui.components.InsightsPanel
 import com.sunny.healthapp.ui.components.MiniArea
 import com.sunny.healthapp.ui.components.MiniBars
@@ -194,7 +195,7 @@ private fun HomeContent(
 
         StaggeredEnter(index = 5) { m ->
             Box(modifier = m.padding(horizontal = 20.dp)) {
-                ReadinessPanel(state)
+                state.bodyBattery?.let { BodyBatteryPanel(summary = it) }
             }
         }
 
