@@ -249,6 +249,35 @@ fun SettingsScreen(onBack: () -> Unit) {
 
         Spacer(Modifier.height(20.dp))
 
+        // --- Diagnostics ---
+        SectionLabel("Diagnostics")
+        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+            Panel(modifier = Modifier.fillMaxWidth()) {
+                val diag = state.diagnostics
+                DiagRow("Last sync", diag.lastSyncAt?.let { friendlyAgo(it) } ?: "never this session")
+                DiagRow(
+                    "Latest HR",
+                    if (diag.latestHrBpm != null && diag.latestHrTime != null)
+                        "${diag.latestHrBpm} bpm · ${friendlyAgo(diag.latestHrTime)}"
+                    else "no samples today"
+                )
+                DiagRow("HR samples today", diag.todayHrSampleCount.toString())
+                DiagRow("Steps today (cached)", "%,d".format(diag.todaySteps))
+                DiagRow(
+                    "Fitbit packages in filter",
+                    state.availableSources
+                        .filter { it.contains("Fitbit", ignoreCase = true) }
+                        .joinToString("\n") { it.substringBefore("  ·") }
+                        .ifEmpty { "(none)" }
+                )
+                if (diag.lastSyncMessage != null) {
+                    DiagRow("Sync message", diag.lastSyncMessage)
+                }
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
         // --- About ---
         SectionLabel("About")
         Box(modifier = Modifier.padding(horizontal = 20.dp)) {
@@ -295,6 +324,40 @@ fun SettingsScreen(onBack: () -> Unit) {
             },
             onDismiss = { pickingSource = false },
         )
+    }
+}
+
+@Composable
+private fun DiagRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = TextSecondary,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextPrimary,
+            modifier = Modifier.weight(1.4f),
+        )
+    }
+}
+
+private fun friendlyAgo(at: java.time.Instant): String {
+    val mins = java.time.Duration.between(at, java.time.Instant.now()).toMinutes()
+    val absMins = kotlin.math.abs(mins)
+    return when {
+        absMins < 1 -> "just now"
+        absMins < 60 -> "${absMins}m ago"
+        absMins < 1440 -> "${absMins / 60}h ${absMins % 60}m ago"
+        else -> "${absMins / 1440}d ago"
     }
 }
 
