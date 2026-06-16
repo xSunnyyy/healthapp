@@ -38,4 +38,7 @@ interface SleepDao {
 
     @Query("SELECT * FROM sleep_stage WHERE sessionId = :sessionId ORDER BY `start` ASC")
     suspend fun stagesFor(sessionId: String): List<SleepStageEntity>
+
+    @Query("DELETE FROM sleep_session")
+    suspend fun clearAll()
 }

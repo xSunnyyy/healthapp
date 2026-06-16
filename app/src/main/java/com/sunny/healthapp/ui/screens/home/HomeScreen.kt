@@ -59,6 +59,7 @@ import com.sunny.healthapp.ui.components.StaggeredEnter
 import com.sunny.healthapp.ui.components.StatTile
 import com.sunny.healthapp.ui.components.StatTileRow
 import com.sunny.healthapp.ui.components.SyncDot
+import com.sunny.healthapp.ui.components.SyncErrorBanner
 import com.sunny.healthapp.ui.screens.PermissionGate
 import com.sunny.healthapp.ui.theme.Accent
 import com.sunny.healthapp.ui.theme.Crimson
@@ -125,6 +126,15 @@ private fun HomeContent(
         }
 
         Spacer(Modifier.height(24.dp))
+
+        (syncStatus as? com.sunny.healthapp.data.sync.SyncStatus.Error)?.let { err ->
+            StaggeredEnter(index = 1) { m ->
+                Box(modifier = m.padding(horizontal = 20.dp)) {
+                    SyncErrorBanner(message = err.message ?: "Sync failed.")
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+        }
 
         StaggeredEnter(index = 1) { m ->
             EditorialHeader(

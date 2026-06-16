@@ -104,13 +104,13 @@ fun SettingsScreen(onBack: () -> Unit) {
         Spacer(Modifier.height(20.dp))
 
         // --- Data source section ---
-        SectionLabel("Data source")
+        SectionLabel("Data source · Fitbit only")
         Box(modifier = Modifier.padding(horizontal = 20.dp)) {
             Panel(modifier = Modifier.fillMaxWidth()) {
                 Text("Reading from", style = MaterialTheme.typography.labelMedium, color = TextMuted)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = state.activeSource ?: "Auto-detecting…",
+                    text = state.activeSource ?: "No Fitbit source yet",
                     style = MaterialTheme.typography.titleMedium,
                     color = TextPrimary,
                 )
@@ -121,20 +121,35 @@ fun SettingsScreen(onBack: () -> Unit) {
                         color = Accent,
                     )
                 }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Vitals filters Health Connect to your Fitbit data only — no phone " +
+                        "pedometer, no Google Fit. If totals look off, run a Force re-sync below.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                )
                 Spacer(Modifier.height(14.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     PillButton("Change source", onClick = { pickingSource = true })
                     if (state.prefs.preferredOrigin != null) {
-                        PillButton("Reset to auto", onClick = { vm.setPreferredOrigin(null) })
+                        PillButton("Use Fitbit auto", onClick = { vm.setPreferredOrigin(null) })
                     }
                 }
-                if (state.availableSources.size > 1) {
-                    Spacer(Modifier.height(12.dp))
+                if (state.availableSources.isNotEmpty()) {
+                    Spacer(Modifier.height(14.dp))
                     Text(
-                        "Seen sources: ${state.availableSources.size}",
+                        "Sources seen in the last 30 days",
                         style = MaterialTheme.typography.labelSmall,
                         color = TextMuted,
                     )
+                    Spacer(Modifier.height(6.dp))
+                    state.availableSources.forEach { line ->
+                        Text(
+                            text = line,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextSecondary,
+                        )
+                    }
                 }
             }
         }
