@@ -96,6 +96,38 @@ class HealthRepository(
                 session.toDomain(stages)
             }
 
+    /**
+     * Detected naps between [after] (typically last night's wake) and [until].
+     * Returns (start, end) pairs sorted by start ascending.
+     */
+    suspend fun napsBetween(after: Instant, until: Instant): List<Pair<Instant, Instant>> {
+        if (until <= after) return emptyList()
+        return db.sleepDao().range(after, until)
+            .filter { it.start >= after && it.end <= until }
+            .sortedBy { it.start }
+            .map { it.start to it.end }
+    }
+
+    /**
+     * Steps per minute via Health Connect's aggregateGroupByDuration.
+     * Returns epochMinute (Instant.epochSecond / 60) -> step count for any
+     * minute that had non-zero steps. Minutes not in the map = 0 steps.
+     */
+    suspend fun stepsByMinute(from: Instant, to: Instant): Map<Long, Long> {
+        if (to <= from) return emptyMap()
+        val buckets = hc.aggregateByDuration(
+            metrics = setOf(androidx.health.connect.client.records.StepsRecord.COUNT_TOTAL),
+            range = androidx.health.connect.client.time.TimeRangeFilter.between(from, to),
+            slicer = Duration.ofMinutes(1),
+        )
+        return buckets.mapNotNull { bucket ->
+            val count = bucket.result[androidx.health.connect.client.records.StepsRecord.COUNT_TOTAL]
+            if (count != null && count > 0) {
+                (bucket.startTime.epochSecond / 60) to count
+            } else null
+        }.toMap()
+    }
+
     suspend fun sleepOnDate(date: LocalDate, zone: ZoneId = ZoneId.systemDefault()): SleepSummary? {
         // Find the sleep session whose "wake time" lands on this date.
         val windowStart = date.minusDays(1).atStartOfDay(zone).toInstant()

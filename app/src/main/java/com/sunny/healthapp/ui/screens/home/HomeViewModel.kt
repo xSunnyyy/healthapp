@@ -117,6 +117,16 @@ class HomeViewModel(
             }
         }
 
+        // Per-minute steps (epochMinute -> count) so we can detect 'quiet minutes'.
+        val stepsByMinute = runCatching {
+            if (wake < windowEnd) repo.stepsByMinute(wake, windowEnd) else emptyMap()
+        }.getOrDefault(emptyMap())
+
+        // Daytime naps between wake and now contribute to recharge.
+        val naps = runCatching {
+            if (wake < windowEnd) repo.napsBetween(wake, windowEnd) else emptyList()
+        }.getOrDefault(emptyList())
+
         return BodyBatteryCalculator.compute(
             BodyBatteryCalculator.Inputs(
                 now = now,
@@ -127,8 +137,8 @@ class HomeViewModel(
                 avgBedtime = runCatching { repo.bedtimeAverage(zone) }.getOrNull(),
                 hrSamples = hr,
                 activeKcalByHour = byHour,
-                stepsByMinute = emptyMap(),
-                napsToday = emptyList(),
+                stepsByMinute = stepsByMinute,
+                napsToday = naps,
             )
         )
     }
