@@ -142,34 +142,26 @@ private fun DayContent(
     StaggeredEnter(2) { m ->
         Box(modifier = m.padding(horizontal = 20.dp)) {
             Panel(modifier = Modifier.fillMaxWidth()) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Time asleep", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = sleep?.let { formatDuration(it.total.toMinutes()) } ?: "—",
-                            style = MaterialTheme.typography.headlineLarge,
-                            color = TextPrimary,
-                        )
-                        if (sleep != null) {
-                            Text(
-                                text = sessionLabel(sleep),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = TextMuted,
-                            )
-                        }
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text("Score", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                Text("Time asleep", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = sleep?.let { formatDuration(it.total.toMinutes()) } ?: "—",
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = TextPrimary,
+                )
+                if (sleep != null) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = sessionLabel(sleep),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary,
+                    )
+                    val awakeMin = sleep.awake.toMinutes()
+                    if (awakeMin > 0) {
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            text = (sleep?.score ?: 0).toString(),
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = Accent,
-                        )
-                        Text(
-                            text = sleep?.let { "${it.efficiencyPct}% eff." } ?: "",
-                            style = MaterialTheme.typography.labelSmall,
+                            text = "${awakeMin}m awake · ${sleep.efficiencyPct}% efficiency",
+                            style = MaterialTheme.typography.labelMedium,
                             color = TextMuted,
                         )
                     }
@@ -358,10 +350,7 @@ private fun formatDuration(totalMinutes: Long): String {
 private fun sessionLabel(s: SleepSummary): String {
     val z = ZoneId.systemDefault()
     val f = DateTimeFormatter.ofPattern("h:mm a")
-    val range = "${f.format(s.start.atZone(z))} → ${f.format(s.end.atZone(z))}"
-    val awakeMin = s.awake.toMinutes()
-    val awakePart = if (awakeMin > 0) " · ${awakeMin}m awake" else ""
-    return "In bed $range$awakePart"
+    return "In bed ${f.format(s.start.atZone(z))} → ${f.format(s.end.atZone(z))}"
 }
 
 private fun periodLabel(p: Period): String = when (p) {

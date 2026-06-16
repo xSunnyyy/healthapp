@@ -54,6 +54,7 @@ class HealthSyncManager(
 
     @Volatile private var primaryOrigin: DataOrigin? = null
     @Volatile private var phoneOrigin: DataOrigin? = null
+    @Volatile private var fitbitOriginSet: Set<DataOrigin> = emptySet()
     @Volatile private var availableOrigins: List<OriginInfo> = emptyList()
 
     /** The package name of the data source we're filtering by, e.g. "com.fitbit.FitbitMobile". */
@@ -93,27 +94,43 @@ class HealthSyncManager(
             Instant.now().minus(Duration.ofDays(30)),
             Instant.now(),
         )
-        val records = hc.read(StepsRecord::class, window)
-        if (records.isEmpty()) {
+
+        // Look across ALL the record types we use, not just steps. Fitbit
+        // sometimes splits writers (e.g. wear companion writes HR, phone app
+        // writes steps), so a single-type discovery can miss valid origins.
+        val allOrigins = mutableListOf<DataOrigin>()
+        allOrigins += hc.read(StepsRecord::class, window).map { it.metadata.dataOrigin }
+        allOrigins += hc.read(HeartRateRecord::class, window).map { it.metadata.dataOrigin }
+        allOrigins += hc.read(SleepSessionRecord::class, window).map { it.metadata.dataOrigin }
+
+        if (allOrigins.isEmpty()) {
             availableOrigins = emptyList()
+            fitbitOriginSet = emptySet()
+            phoneOrigin = null
             return null
         }
 
-        val counts = records.groupingBy { it.metadata.dataOrigin }.eachCount()
+        val counts = allOrigins.groupingBy { it.packageName }.eachCount()
         availableOrigins = counts
-            .map { (origin, count) -> OriginInfo(origin.packageName, count) }
+            .map { (pkg, count) -> OriginInfo(pkg, count) }
             .sortedByDescending { it.recordCount }
-        Log.i(TAG, "Data origins seen for steps: ${availableSources()}")
+        Log.i(TAG, "Data origins seen (steps+HR+sleep): ${availableSources()}")
 
-        val origins = records.map { it.metadata.dataOrigin }.distinct()
+        val origins = allOrigins.distinctBy { it.packageName }
 
-        // Remember the phone pedometer origin too — used for phone-fill mode.
         phoneOrigin = origins.firstOrNull {
             it.packageName.startsWith("com.android.healthconnect.phone") ||
                 it.packageName == "com.google.android.healthconnect"
         }
 
-        // 1) Honor an explicit user override if it points at a real origin.
+        // Collect EVERY origin whose name contains "fitbit". We pass the whole
+        // set as the dataOriginFilter so a sample written by any one of them
+        // (FitbitMobile / wear companion / etc) still flows in.
+        fitbitOriginSet = origins
+            .filter { it.packageName.contains(ALLOWED_PACKAGE_PATTERN, ignoreCase = true) }
+            .toSet()
+
+        // 1) Honor an explicit user override.
         val override = prefs?.current()?.preferredOrigin
         if (override != null) {
             val match = origins.firstOrNull { it.packageName == override }
@@ -121,16 +138,15 @@ class HealthSyncManager(
                 Log.i(TAG, "Using user override: ${match.packageName}")
                 return match
             }
-            Log.w(TAG, "User override $override not present in HC any more; falling back to Fitbit auto-detect")
+            Log.w(TAG, "User override $override not present any more; falling back to Fitbit auto-detect")
         }
 
-        // 2) STRICT: only a Fitbit-named origin. No fallback.
-        val fitbit = origins.firstOrNull {
-            it.packageName.contains(ALLOWED_PACKAGE_PATTERN, ignoreCase = true)
-        }
-        if (fitbit != null) {
-            Log.i(TAG, "Using Fitbit origin: ${fitbit.packageName}")
-            return fitbit
+        // 2) Use the first Fitbit-named origin as the primary label, but the
+        //    actual filter set below uses *all* Fitbit-named origins.
+        val primary = fitbitOriginSet.firstOrNull()
+        if (primary != null) {
+            Log.i(TAG, "Using Fitbit origins: ${fitbitOriginSet.map { it.packageName }}")
+            return primary
         }
 
         Log.w(TAG, "No Fitbit data source found. Origins seen: ${availableSources()}")
@@ -170,7 +186,10 @@ class HealthSyncManager(
                     "Then come back and pull down to refresh."
             )
         }
-        val originFilter: Set<DataOrigin> = setOf(primaryOrigin!!)
+        // Use ALL Fitbit-named origins as the filter, not just the primary,
+        // so HR samples written by a wear-companion package are still picked up.
+        val originFilter: Set<DataOrigin> = fitbitOriginSet.takeIf { it.isNotEmpty() }
+            ?: setOf(primaryOrigin!!)
 
         // On a force-resync, wipe everything we previously stored so any rows
         // that were upserted from non-Fitbit sources before strict mode are
