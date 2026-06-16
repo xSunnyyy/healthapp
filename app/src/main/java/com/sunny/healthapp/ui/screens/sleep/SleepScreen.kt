@@ -358,7 +358,10 @@ private fun formatDuration(totalMinutes: Long): String {
 private fun sessionLabel(s: SleepSummary): String {
     val z = ZoneId.systemDefault()
     val f = DateTimeFormatter.ofPattern("h:mm a")
-    return "${f.format(s.start.atZone(z))} — ${f.format(s.end.atZone(z))}"
+    val range = "${f.format(s.start.atZone(z))} → ${f.format(s.end.atZone(z))}"
+    val awakeMin = s.awake.toMinutes()
+    val awakePart = if (awakeMin > 0) " · ${awakeMin}m awake" else ""
+    return "In bed $range$awakePart"
 }
 
 private fun periodLabel(p: Period): String = when (p) {
