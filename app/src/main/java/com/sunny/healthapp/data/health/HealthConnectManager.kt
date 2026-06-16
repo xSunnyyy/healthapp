@@ -41,13 +41,26 @@ class HealthConnectManager(private val context: Context) {
         type: KClass<T>,
         range: TimeRangeFilter,
         dataOriginFilter: Set<DataOrigin> = emptySet(),
+        paginate: Boolean = true,
     ): List<T> {
         val c = client ?: return emptyList()
-        // Health Connect's ReadRecordsRequest caps at 1000 records per page and
-        // returns them sorted ascending by start time. For a busy day of HR
-        // samples that means we'd silently truncate at ~midday. Iterate the
-        // pageToken until HC tells us there's nothing more.
         return runCatching {
+            if (!paginate) {
+                // Single-page read — used when callers only need a sample
+                // (e.g. origin discovery enumerating distinct sources) and not
+                // every record in the range.
+                return@runCatching c.readRecords(
+                    ReadRecordsRequest(
+                        recordType = type,
+                        timeRangeFilter = range,
+                        dataOriginFilter = dataOriginFilter,
+                    )
+                ).records
+            }
+            // Health Connect's ReadRecordsRequest caps at 1000 records per page
+            // and returns them sorted ascending by start time. Iterate the
+            // pageToken until HC tells us there's nothing more, with a 200-page
+            // safety cap in case HC misbehaves.
             val all = mutableListOf<T>()
             var token: String? = null
             var pages = 0
@@ -63,7 +76,6 @@ class HealthConnectManager(private val context: Context) {
                 all.addAll(response.records)
                 token = response.pageToken
                 pages++
-                // Safety: don't loop forever if HC misbehaves.
                 if (pages > 200) {
                     android.util.Log.w("HealthConnect", "read() page cap hit for $type")
                     break

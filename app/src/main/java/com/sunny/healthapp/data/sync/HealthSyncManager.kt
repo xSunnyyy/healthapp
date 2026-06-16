@@ -95,13 +95,19 @@ class HealthSyncManager(
             Instant.now(),
         )
 
-        // Look across ALL the record types we use, not just steps. Fitbit
-        // sometimes splits writers (e.g. wear companion writes HR, phone app
-        // writes steps), so a single-type discovery can miss valid origins.
+        // Look across multiple record types so we catch every source. Fitbit
+        // sometimes splits writers (e.g. wear companion writes HR while the
+        // phone app writes steps), so a single-type discovery can miss valid
+        // origins. We use single-page reads here (paginate = false) because we
+        // only need to enumerate distinct sources, not every record — one page
+        // (1000) is plenty to expose them all.
         val allOrigins = mutableListOf<DataOrigin>()
-        allOrigins += hc.read(StepsRecord::class, window).map { it.metadata.dataOrigin }
-        allOrigins += hc.read(HeartRateRecord::class, window).map { it.metadata.dataOrigin }
-        allOrigins += hc.read(SleepSessionRecord::class, window).map { it.metadata.dataOrigin }
+        allOrigins += hc.read(StepsRecord::class, window, paginate = false)
+            .map { it.metadata.dataOrigin }
+        allOrigins += hc.read(HeartRateRecord::class, window, paginate = false)
+            .map { it.metadata.dataOrigin }
+        allOrigins += hc.read(SleepSessionRecord::class, window, paginate = false)
+            .map { it.metadata.dataOrigin }
 
         if (allOrigins.isEmpty()) {
             availableOrigins = emptyList()
