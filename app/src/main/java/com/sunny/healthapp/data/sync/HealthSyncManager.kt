@@ -53,6 +53,7 @@ class HealthSyncManager(
     val status: StateFlow<SyncStatus> = _status.asStateFlow()
 
     @Volatile private var primaryOrigin: DataOrigin? = null
+    @Volatile private var phoneOrigin: DataOrigin? = null
     @Volatile private var availableOrigins: List<OriginInfo> = emptyList()
 
     /** The package name of the data source we're filtering by, e.g. "com.fitbit.FitbitMobile". */
@@ -105,6 +106,12 @@ class HealthSyncManager(
         Log.i(TAG, "Data origins seen for steps: ${availableSources()}")
 
         val origins = records.map { it.metadata.dataOrigin }.distinct()
+
+        // Remember the phone pedometer origin too — used for phone-fill mode.
+        phoneOrigin = origins.firstOrNull {
+            it.packageName.startsWith("com.android.healthconnect.phone") ||
+                it.packageName == "com.google.android.healthconnect"
+        }
 
         // 1) Honor an explicit user override if it points at a real origin.
         val override = prefs?.current()?.preferredOrigin
@@ -177,6 +184,11 @@ class HealthSyncManager(
             db.spo2SampleDao().clearAll()
         }
 
+        val phoneFill = prefs?.current()?.phoneFillEnabled == true && phoneOrigin != null
+        if (phoneFill) {
+            Log.i(TAG, "Phone-fill ENABLED for steps + distance; phone origin = ${phoneOrigin?.packageName}")
+        }
+
         val from: LocalDate = if (force || state?.lastFullSyncAt == null) {
             today.minusDays(BACKFILL_DAYS)
         } else {
@@ -229,10 +241,15 @@ class HealthSyncManager(
                     dataOriginFilter = originFilter,
                 )
 
-                val steps = agg?.get(StepsRecord.COUNT_TOTAL) ?: 0L
+                val baseSteps = agg?.get(StepsRecord.COUNT_TOTAL) ?: 0L
+                val baseDistance = agg?.get(DistanceRecord.DISTANCE_TOTAL)?.inMeters ?: 0.0
+                val (steps, distance) = if (phoneFill) {
+                    mergeStepsAndDistance(range, primaryOrigin!!, phoneOrigin!!, baseSteps, baseDistance)
+                } else {
+                    baseSteps to baseDistance
+                }
                 val active = agg?.get(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)?.inKilocalories ?: 0.0
                 val total = agg?.get(TotalCaloriesBurnedRecord.ENERGY_TOTAL)?.inKilocalories ?: 0.0
-                val distance = agg?.get(DistanceRecord.DISTANCE_TOTAL)?.inMeters ?: 0.0
                 val floors = agg?.get(FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL) ?: 0.0
                 val aggAvgHr = agg?.get(HeartRateRecord.BPM_AVG)?.toInt()
                 val aggMinHr = agg?.get(HeartRateRecord.BPM_MIN)?.toInt()
@@ -377,6 +394,58 @@ class HealthSyncManager(
         )
         Log.i(TAG, "Sync complete: $report")
         return report
+    }
+
+    /**
+     * Per-hour merge: keep Fitbit's count where it recorded > 0 steps, fall
+     * back to the phone pedometer in hours where Fitbit didn't see anything
+     * (typically the watch wasn't on the wrist). Done identically for steps
+     * and distance using HC's aggregateGroupByDuration with 1h buckets.
+     */
+    private suspend fun mergeStepsAndDistance(
+        range: TimeRangeFilter,
+        fitbit: DataOrigin,
+        phone: DataOrigin,
+        baseSteps: Long,
+        baseDistance: Double,
+    ): Pair<Long, Double> {
+        val slicer = Duration.ofHours(1)
+        val metrics = setOf(StepsRecord.COUNT_TOTAL, DistanceRecord.DISTANCE_TOTAL)
+        val fitbitBuckets = hc.aggregateByDuration(metrics, range, slicer, setOf(fitbit))
+        val phoneBuckets = hc.aggregateByDuration(metrics, range, slicer, setOf(phone))
+
+        val phoneByStart = phoneBuckets.associateBy { it.startTime }
+
+        var steps = baseSteps
+        var distance = baseDistance
+        var stepsAdded = 0L
+        var distAdded = 0.0
+
+        fitbitBuckets.forEach { fb ->
+            val fbSteps = fb.result[StepsRecord.COUNT_TOTAL] ?: 0L
+            val fbDistance = fb.result[DistanceRecord.DISTANCE_TOTAL]?.inMeters ?: 0.0
+            if (fbSteps == 0L) {
+                val ph = phoneByStart[fb.startTime]
+                val phSteps = ph?.result?.get(StepsRecord.COUNT_TOTAL) ?: 0L
+                val phDistance = ph?.result?.get(DistanceRecord.DISTANCE_TOTAL)?.inMeters ?: 0.0
+                if (phSteps > 0) {
+                    stepsAdded += phSteps
+                    distAdded += phDistance
+                }
+            }
+        }
+        // Also handle hours where Fitbit didn't return any bucket at all.
+        val fitbitStarts = fitbitBuckets.map { it.startTime }.toSet()
+        phoneBuckets.forEach { ph ->
+            if (ph.startTime !in fitbitStarts) {
+                stepsAdded += ph.result[StepsRecord.COUNT_TOTAL] ?: 0L
+                distAdded += ph.result[DistanceRecord.DISTANCE_TOTAL]?.inMeters ?: 0.0
+            }
+        }
+
+        steps += stepsAdded
+        distance += distAdded
+        return steps to distance
     }
 
     private fun stageName(stage: Int): String = when (stage) {

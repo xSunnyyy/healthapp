@@ -24,6 +24,7 @@ class UserPrefsRepository(context: Context) {
             activeMinutesGoal = p[ACTIVE_MIN_GOAL] ?: 30,
             distanceGoalMiles = p[DISTANCE_GOAL_MILES] ?: 3.0f,
             preferredOrigin = p[PREFERRED_ORIGIN],
+            phoneFillEnabled = p[PHONE_FILL] ?: false,
         )
     }
 
@@ -37,6 +38,7 @@ class UserPrefsRepository(context: Context) {
     suspend fun setPreferredOrigin(value: String?) = store.edit {
         if (value == null) it.remove(PREFERRED_ORIGIN) else it[PREFERRED_ORIGIN] = value
     }
+    suspend fun setPhoneFillEnabled(value: Boolean) = store.edit { it[PHONE_FILL] = value }
 
     private companion object {
         val ONBOARDED = booleanPreferencesKey("onboarded")
@@ -45,5 +47,6 @@ class UserPrefsRepository(context: Context) {
         val ACTIVE_MIN_GOAL = intPreferencesKey("active_min_goal")
         val DISTANCE_GOAL_MILES = floatPreferencesKey("distance_goal_miles")
         val PREFERRED_ORIGIN = stringPreferencesKey("preferred_origin")
+        val PHONE_FILL = booleanPreferencesKey("phone_fill_enabled")
     }
 }

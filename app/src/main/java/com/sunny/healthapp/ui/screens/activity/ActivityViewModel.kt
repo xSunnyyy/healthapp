@@ -42,11 +42,10 @@ class ActivityViewModel(
     init {
         load(LocalDate.now())
         viewModelScope.launch {
-            var wasSyncing = false
+            var lastSeen: java.time.Instant? = null
             app.syncManager.status.collect { status ->
-                if (status is SyncStatus.Syncing) wasSyncing = true
-                else if (wasSyncing && status is SyncStatus.Done) {
-                    wasSyncing = false
+                if (status is SyncStatus.Done && status.at != lastSeen) {
+                    lastSeen = status.at
                     load(_state.value.date)
                 }
             }

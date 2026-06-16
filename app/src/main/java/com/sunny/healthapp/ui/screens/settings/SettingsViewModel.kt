@@ -49,6 +49,11 @@ class SettingsViewModel(
         app.triggerManualSync(force = false)
     }
 
+    fun setPhoneFillEnabled(value: Boolean) = viewModelScope.launch {
+        prefsRepo.setPhoneFillEnabled(value)
+        app.triggerManualSync(force = true)
+    }
+
     fun fullRebackfill() = app.triggerManualSync(force = true)
 
     companion object {
