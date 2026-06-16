@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.sunny.healthapp.HealthApp
 import com.sunny.healthapp.data.health.HealthRepository
 import com.sunny.healthapp.data.sync.SyncStatus
+import com.sunny.healthapp.domain.BodyBatteryCalculator
+import com.sunny.healthapp.domain.model.BodyBatterySummary
 import com.sunny.healthapp.domain.model.DailySummary
 import com.sunny.healthapp.domain.model.ReadinessSummary
 import com.sunny.healthapp.domain.model.SleepSummary
@@ -23,6 +25,7 @@ data class HomeState(
     val previousDaily: DailySummary? = null,
     val sleep: SleepSummary? = null,
     val readiness: ReadinessSummary? = null,
+    val bodyBattery: BodyBatterySummary? = null,
     val weeklySteps: List<Pair<LocalDate, Long>> = emptyList(),
     val weeklyCalories: List<Pair<LocalDate, Double>> = emptyList(),
     val weeklySleepMin: List<Pair<LocalDate, Long>> = emptyList(),
@@ -84,6 +87,61 @@ class HomeViewModel(
     fun previous() = load(_state.value.date.minusDays(1))
 
     fun manualSync() = app.triggerManualSync()
+
+    private suspend fun computeBodyBattery(
+        date: LocalDate,
+        sleep: SleepSummary?,
+    ): BodyBatterySummary {
+        val zone = java.time.ZoneId.systemDefault()
+        val now = java.time.Instant.now()
+        val dayStart = date.atStartOfDay(zone).toInstant()
+        val dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant()
+
+        // HR samples for the calculator window (from wake or day-start to now)
+        val wake = sleep?.end ?: dayStart
+        val windowEnd = minOf(now, dayEnd)
+        val hr = if (wake < windowEnd) {
+            repo.hrSamples(wake, windowEnd).map { it.time to it.bpm }
+        } else emptyList()
+
+        // Active calories per hour for the day so far. Roughly: scale today's total
+        // by the share of HR samples falling in each hour.
+        val daily = repo.dailySummary(date)
+        val totalKcal = daily.activeCalories
+        val byHour = mutableMapOf<Int, Double>()
+        if (hr.isNotEmpty() && totalKcal > 0) {
+            val perHourCount = hr.groupingBy { it.first.atZone(zone).hour }.eachCount()
+            val totalSamples = perHourCount.values.sum().coerceAtLeast(1)
+            perHourCount.forEach { (h, count) ->
+                byHour[h] = totalKcal * (count.toDouble() / totalSamples)
+            }
+        }
+
+        // Per-minute steps (epochMinute -> count) so we can detect 'quiet minutes'.
+        val stepsByMinute = runCatching {
+            if (wake < windowEnd) repo.stepsByMinute(wake, windowEnd) else emptyMap()
+        }.getOrDefault(emptyMap())
+
+        // Daytime naps between wake and now contribute to recharge.
+        val naps = runCatching {
+            if (wake < windowEnd) repo.napsBetween(wake, windowEnd) else emptyList()
+        }.getOrDefault(emptyList())
+
+        return BodyBatteryCalculator.compute(
+            BodyBatteryCalculator.Inputs(
+                now = now,
+                zone = zone,
+                lastNightSleep = sleep,
+                hrvBaselineMs = runCatching { repo.hrvBaseline() }.getOrNull(),
+                rhrBaselineBpm = runCatching { repo.rhrBaseline() }.getOrNull(),
+                avgBedtime = runCatching { repo.bedtimeAverage(zone) }.getOrNull(),
+                hrSamples = hr,
+                activeKcalByHour = byHour,
+                stepsByMinute = stepsByMinute,
+                napsToday = naps,
+            )
+        )
+    }
 
     private suspend fun computeInsights(date: LocalDate): WeeklyInsights {
         val prefs = app.prefs.current()
@@ -153,6 +211,7 @@ class HomeViewModel(
             val weeklySleep = weekly.map { (d, _, sl) -> d to (sl?.total?.toMinutes() ?: 0L) }
 
             val insights = runCatching { computeInsights(date) }.getOrNull()
+            val bodyBattery = runCatching { computeBodyBattery(date, sleep) }.getOrNull()
 
             _state.value = HomeState(
                 loading = false,
@@ -161,6 +220,7 @@ class HomeViewModel(
                 previousDaily = previous,
                 sleep = sleep,
                 readiness = readiness,
+                bodyBattery = bodyBattery,
                 weeklySteps = weeklySteps,
                 weeklyCalories = weeklyCal,
                 weeklySleepMin = weeklySleep,
