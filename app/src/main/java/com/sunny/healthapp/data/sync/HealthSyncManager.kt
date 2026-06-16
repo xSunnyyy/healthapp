@@ -53,13 +53,20 @@ class HealthSyncManager(
     val status: StateFlow<SyncStatus> = _status.asStateFlow()
 
     @Volatile private var primaryOrigin: DataOrigin? = null
-    @Volatile private var availableOrigins: List<String> = emptyList()
+    @Volatile private var availableOrigins: List<OriginInfo> = emptyList()
 
     /** The package name of the data source we're filtering by, e.g. "com.fitbit.FitbitMobile". */
     fun primarySource(): String? = primaryOrigin?.packageName
 
-    /** Every distinct source seen in the last 7 days of steps data. */
-    fun availableSources(): List<String> = availableOrigins
+    /** Every distinct source seen in the last 30 days of steps, with record counts. */
+    fun availableSources(): List<String> =
+        availableOrigins.map { "${it.packageName}  ·  ${it.recordCount} records" }
+
+    fun availableOriginPackages(): List<String> = availableOrigins.map { it.packageName }
+
+    data class OriginInfo(val packageName: String, val recordCount: Int)
+
+    class NoFitbitSourceException(message: String) : RuntimeException(message)
 
     companion object {
         private const val TAG = "HealthSync"
@@ -67,55 +74,58 @@ class HealthSyncManager(
         const val INCREMENTAL_OVERLAP_DAYS = 2L
         private const val META_KEY = "global"
 
-        // Order of preference when picking a data source. First match wins.
-        private val PREFERRED_PACKAGE_PATTERNS = listOf(
-            "fitbit",        // com.fitbit.FitbitMobile, com.google.fitbit.*
-            "wearables",     // Google Pixel Watch wearable services
-            "googlefit",     // Google Fit fallback
-        )
+        // Only origins whose package name contains this string are accepted.
+        // The user explicitly wants Fitbit data only — no phone pedometer,
+        // no Google Fit aggregation, no anything else.
+        private const val ALLOWED_PACKAGE_PATTERN = "fitbit"
     }
 
     /**
-     * Discover the dominant wearable-style data source so we read only from it
-     * (matching how Google Health picks one source instead of summing them).
+     * Discover the Fitbit data source. If no origin containing 'fitbit' is found,
+     * returns null and the caller surfaces the error to the user. We intentionally
+     * do NOT fall back to phone pedometers, Google Fit or other origins.
      */
     private suspend fun discoverPrimaryOrigin(): DataOrigin? {
         val window = TimeRangeFilter.between(
-            Instant.now().minus(Duration.ofDays(7)),
+            Instant.now().minus(Duration.ofDays(30)),
             Instant.now(),
         )
         val records = hc.read(StepsRecord::class, window)
-        if (records.isEmpty()) return null
+        if (records.isEmpty()) {
+            availableOrigins = emptyList()
+            return null
+        }
+
+        val counts = records.groupingBy { it.metadata.dataOrigin }.eachCount()
+        availableOrigins = counts
+            .map { (origin, count) -> OriginInfo(origin.packageName, count) }
+            .sortedByDescending { it.recordCount }
+        Log.i(TAG, "Data origins seen for steps: ${availableSources()}")
 
         val origins = records.map { it.metadata.dataOrigin }.distinct()
-        availableOrigins = origins.map { it.packageName }
-        Log.i(TAG, "Data origins seen for steps: $availableOrigins")
 
-        // 1) Honor the user's explicit override if it's actually present.
+        // 1) Honor an explicit user override if it points at a real origin.
         val override = prefs?.current()?.preferredOrigin
         if (override != null) {
             val match = origins.firstOrNull { it.packageName == override }
             if (match != null) {
-                Log.i(TAG, "Picked primary origin by user override: ${match.packageName}")
+                Log.i(TAG, "Using user override: ${match.packageName}")
                 return match
             }
-            Log.w(TAG, "User override $override not present; falling back to auto-detect")
+            Log.w(TAG, "User override $override not present in HC any more; falling back to Fitbit auto-detect")
         }
 
-        // 2) Prefer a wearable-style source in priority order.
-        for (pattern in PREFERRED_PACKAGE_PATTERNS) {
-            val match = origins.firstOrNull { it.packageName.contains(pattern, ignoreCase = true) }
-            if (match != null) {
-                Log.i(TAG, "Picked primary origin by pattern '$pattern': ${match.packageName}")
-                return match
-            }
+        // 2) STRICT: only a Fitbit-named origin. No fallback.
+        val fitbit = origins.firstOrNull {
+            it.packageName.contains(ALLOWED_PACKAGE_PATTERN, ignoreCase = true)
+        }
+        if (fitbit != null) {
+            Log.i(TAG, "Using Fitbit origin: ${fitbit.packageName}")
+            return fitbit
         }
 
-        // 3) No known wearable — fall back to the origin contributing the most records.
-        val top = records.groupingBy { it.metadata.dataOrigin }.eachCount()
-            .maxByOrNull { it.value }?.key
-        Log.i(TAG, "Picked primary origin by record count: ${top?.packageName}")
-        return top
+        Log.w(TAG, "No Fitbit data source found. Origins seen: ${availableSources()}")
+        return null
     }
 
     suspend fun syncAll(force: Boolean = false): SyncReport {
@@ -143,7 +153,27 @@ class HealthSyncManager(
         // Pick the data source once at the start of the sync. Cached on the
         // instance so per-day calls all use the same filter.
         primaryOrigin = discoverPrimaryOrigin()
-        val originFilter: Set<DataOrigin> = primaryOrigin?.let { setOf(it) } ?: emptySet()
+        if (primaryOrigin == null) {
+            throw NoFitbitSourceException(
+                "No Fitbit data found in Health Connect.\n\n" +
+                    "Open the Fitbit app → Profile → app settings → Health Connect, " +
+                    "and turn ON Steps, Heart rate, Sleep, Distance and Active energy. " +
+                    "Then come back and pull down to refresh."
+            )
+        }
+        val originFilter: Set<DataOrigin> = setOf(primaryOrigin!!)
+
+        // On a force-resync, wipe everything we previously stored so any rows
+        // that were upserted from non-Fitbit sources before strict mode are
+        // gone. After this the only data in Room comes from the Fitbit origin.
+        if (force) {
+            Log.i(TAG, "Force sync: clearing local cache before backfill")
+            db.dailySummaryDao().clearAll()
+            db.sleepDao().clearAll()
+            db.hrSampleDao().clearAll()
+            db.hrvSampleDao().clearAll()
+            db.spo2SampleDao().clearAll()
+        }
 
         val from: LocalDate = if (force || state?.lastFullSyncAt == null) {
             today.minusDays(BACKFILL_DAYS)

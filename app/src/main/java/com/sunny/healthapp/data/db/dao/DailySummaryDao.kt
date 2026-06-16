@@ -30,4 +30,7 @@ interface DailySummaryDao {
 
     @Query("SELECT MAX(date) FROM daily_summary")
     suspend fun latestStored(): LocalDate?
+
+    @Query("DELETE FROM daily_summary")
+    suspend fun clearAll()
 }

@@ -20,6 +20,9 @@ interface HrSampleDao {
 
     @Query("SELECT MAX(time) FROM hr_sample")
     suspend fun latestTime(): Instant?
+
+    @Query("DELETE FROM hr_sample")
+    suspend fun clearAll()
 }
 
 @Dao
@@ -29,6 +32,9 @@ interface HrvSampleDao {
 
     @Query("SELECT * FROM hrv_sample WHERE time BETWEEN :from AND :to ORDER BY time ASC")
     suspend fun range(from: Instant, to: Instant): List<HrvSampleEntity>
+
+    @Query("DELETE FROM hrv_sample")
+    suspend fun clearAll()
 }
 
 @Dao
@@ -38,6 +44,9 @@ interface Spo2SampleDao {
 
     @Query("SELECT * FROM spo2_sample WHERE time BETWEEN :from AND :to ORDER BY time ASC")
     suspend fun range(from: Instant, to: Instant): List<Spo2SampleEntity>
+
+    @Query("DELETE FROM spo2_sample")
+    suspend fun clearAll()
 }
 
 @Dao
