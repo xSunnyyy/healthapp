@@ -110,10 +110,19 @@ fun SettingsScreen(onBack: () -> Unit) {
                 Text("Reading from", style = MaterialTheme.typography.labelMedium, color = TextMuted)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = state.activeSource ?: "No Fitbit source yet",
+                    text = state.activeSource
+                        ?.let { com.sunny.healthapp.util.Sources.friendly(it) }
+                        ?: "No Fitbit source yet",
                     style = MaterialTheme.typography.titleMedium,
                     color = TextPrimary,
                 )
+                if (state.activeSource != null) {
+                    Text(
+                        text = state.activeSource!!,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextMuted,
+                    )
+                }
                 if (state.prefs.preferredOrigin != null) {
                     Text(
                         "User override",
@@ -365,14 +374,22 @@ private fun SourcePickerDialog(
                             .padding(vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
-                            text = pkg,
-                            color = TextPrimary,
-                            modifier = Modifier.weight(1f),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = com.sunny.healthapp.util.Sources.friendly(pkg),
+                                color = TextPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            Text(
+                                text = pkg,
+                                color = TextMuted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        }
                         if (isPicked) {
                             Icon(
                                 Icons.Outlined.Check,

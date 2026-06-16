@@ -60,7 +60,9 @@ class HealthSyncManager(
 
     /** Every distinct source seen in the last 30 days of steps, with record counts. */
     fun availableSources(): List<String> =
-        availableOrigins.map { "${it.packageName}  ·  ${it.recordCount} records" }
+        availableOrigins.map {
+            com.sunny.healthapp.util.Sources.friendlyLine(it.packageName, it.recordCount)
+        }
 
     fun availableOriginPackages(): List<String> = availableOrigins.map { it.packageName }
 
