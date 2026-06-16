@@ -233,8 +233,11 @@ class HealthSyncManager(
         var dayIndex = 0
 
         // Per-day summaries — iterate over the range.
-        var d = from
-        while (!d.isAfter(today)) {
+        // Iterate newest -> oldest so that if Android kills the process partway
+        // through a long backfill, the user is left with the most recent data
+        // (which is what they actually look at) instead of a year-old fragment.
+        var d = today
+        while (!d.isBefore(from)) {
             dayIndex++
             if (dayIndex % 5 == 0 || dayIndex == 1) {
                 _status.value = SyncStatus.Syncing(
@@ -331,7 +334,7 @@ class HealthSyncManager(
                 Log.w(TAG, "Day sync failed for $d", e)
             }
 
-            d = d.plusDays(1)
+            d = d.minusDays(1)
         }
 
         _status.value = SyncStatus.Syncing(progress = 0.85f, message = "Syncing sleep history…")
@@ -342,7 +345,11 @@ class HealthSyncManager(
                 from.atStartOfDay(zone).toInstant(),
                 today.plusDays(1).atStartOfDay(zone).toInstant(),
             )
+            // Most-recent night first — same reasoning as the daily loop above:
+            // if sleep sync is interrupted, the night the user actually cares
+            // about is already stored.
             val sessions = hc.read(SleepSessionRecord::class, fullRange, originFilter)
+                .sortedByDescending { it.endTime }
             sessions.forEach { s ->
                 // Sum precise Durations, then convert to minutes once at the end —
                 // prevents the per-segment truncation that caused 1h54m vs 1h56m mismatches.
