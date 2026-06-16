@@ -143,37 +143,48 @@ object BodyBatteryCalculator {
         if (now <= wake) return listOf(point(inputs.zone, wake, startCharge))
 
         val bucketMinutes = 30L
-        val bucketMs = bucketMinutes * 60 * 1000
         var battery = startCharge
 
         val curve = mutableListOf(point(inputs.zone, wake, battery))
         var bucketStart = wake
         while (bucketStart < now) {
             val bucketEnd = minOf(now, bucketStart.plus(Duration.ofMinutes(bucketMinutes)))
+            val bucketDurationMin = Duration.between(bucketStart, bucketEnd).toMinutes()
+            if (bucketDurationMin <= 0) break
 
-            // ----- Drain -----
-            val passive = 3.5 * (Duration.between(bucketStart, bucketEnd).toMinutes() / 60.0)
-
+            // Group raw HR samples by clock-minute so we count MINUTES in each
+            // zone, not raw samples. Fitbit writes ~1 sample every 1-5s; without
+            // this grouping a single hour of 'elevated' HR would be counted as
+            // thousands of zone-minutes and drain the battery to 0 instantly.
             val hrInBucket = inputs.hrSamples.filter {
                 it.first >= bucketStart && it.first < bucketEnd
             }
-            val elevatedMin = hrInBucket.count { it.second in 100..129 } * (bucketMinutes / 60.0)
-                .coerceAtLeast(1.0) * 1.0 // approximation: 1 sample = 1 minute of zone
-            val highMin = hrInBucket.count { it.second >= 130 } * 1.0
-            val zoneDrain = 0.5 * elevatedMin + 1.0 * highMin
+            val byMinute = hrInBucket.groupBy { it.first.epochSecond / 60 }
 
+            val elevatedMin = byMinute.count { (_, samples) ->
+                samples.any { it.second in 110..149 }
+            }
+            val highMin = byMinute.count { (_, samples) ->
+                samples.any { it.second >= 150 }
+            }
+
+            // ----- Drain -----
+            val passive = 2.5 * (bucketDurationMin / 60.0)
+            val zoneDrain = 0.20 * elevatedMin + 0.60 * highMin
             val hourLocal = bucketStart.atZone(inputs.zone).hour
             val bucketActiveKcal =
-                (inputs.activeKcalByHour[hourLocal] ?: 0.0) *
-                    (Duration.between(bucketStart, bucketEnd).toMinutes() / 60.0)
-            val activityDrain = bucketActiveKcal * 0.04
+                (inputs.activeKcalByHour[hourLocal] ?: 0.0) * (bucketDurationMin / 60.0)
+            val activityDrain = bucketActiveKcal * 0.03
 
             // ----- Recharge -----
-            // Quiet minute = HR ≤ 70 (heuristic resting upper bound) AND no steps in that minute.
-            val quietMinuteCount = hrInBucket.count { (t, bpm) ->
-                bpm <= 70 && (inputs.stepsByMinute[t.epochSecond / 60] ?: 0L) == 0L
+            // A 'quiet minute' is one where every HR sample is <= 75 bpm AND
+            // no steps were recorded that minute. Grouped by clock-minute so
+            // we credit minutes, not the raw sample count.
+            val quietMinutes = byMinute.count { (epochMin, samples) ->
+                samples.all { it.second <= 75 } &&
+                    (inputs.stepsByMinute[epochMin] ?: 0L) == 0L
             }
-            val quietRecharge = quietMinuteCount * 0.05
+            val quietRecharge = quietMinutes * 0.10
 
             val napRecharge = inputs.napsToday.sumOf { (napStart, napEnd) ->
                 val overlapStart = maxOf(napStart, bucketStart)
