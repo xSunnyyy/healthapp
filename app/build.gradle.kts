@@ -20,12 +20,29 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Use the repo-committed debug keystore so every machine (local IDE,
+            // GitHub Actions runners, other contributors) signs APKs with the
+            // SAME key. Otherwise each fresh install replaces the previous APK
+            // and Android wipes the app's Room database, which is why testers
+            // were seeing their cached Fitbit history vanish after a rebuild.
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+    }
+
+    signingConfigs {
+        getByName("debug") {
+            storeFile = rootProject.file("keystore/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
         }
     }
 
