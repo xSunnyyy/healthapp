@@ -6,7 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.sunny.healthapp.HealthApp
 import com.sunny.healthapp.data.health.HealthRepository
 import com.sunny.healthapp.data.sync.SyncStatus
+import com.sunny.healthapp.domain.AnomalyDetector
 import com.sunny.healthapp.domain.BodyBatteryCalculator
+import com.sunny.healthapp.domain.model.AnomalyInsight
 import com.sunny.healthapp.domain.model.BodyBatterySummary
 import com.sunny.healthapp.domain.model.DailySummary
 import com.sunny.healthapp.domain.model.ReadinessSummary
@@ -30,6 +32,7 @@ data class HomeState(
     val weeklyCalories: List<Pair<LocalDate, Double>> = emptyList(),
     val weeklySleepMin: List<Pair<LocalDate, Long>> = emptyList(),
     val insights: WeeklyInsights? = null,
+    val anomalies: List<AnomalyInsight> = emptyList(),
 )
 
 data class WeeklyInsights(
@@ -87,6 +90,39 @@ class HomeViewModel(
     fun previous() = load(_state.value.date.minusDays(1))
 
     fun manualSync() = app.triggerManualSync()
+
+    private suspend fun computeAnomalies(date: LocalDate): List<AnomalyInsight> {
+        // Pull 30 days of history (excluding 'date' itself) for the rolling baseline.
+        val historyStart = date.minusDays(30)
+        val historyDays = (1..30).map { date.minusDays(it.toLong()) }
+        val history = historyDays.map { runCatching { repo.dailySummary(it) }.getOrNull() }
+
+        val rhrHist = history.mapNotNull { it?.restingHeartRate }
+        val stepsHist = history.mapNotNull { it?.steps?.takeIf { s -> s > 0 } }
+
+        val sleepHist = historyDays.mapNotNull { d ->
+            runCatching { repo.sleepOnDate(d) }.getOrNull()?.total?.toMinutes()?.takeIf { it > 0 }
+        }
+        val hrvHist = historyDays.mapNotNull { d ->
+            runCatching { repo.sleepOnDate(d) }.getOrNull()?.avgHrv
+        }
+
+        val today = runCatching { repo.dailySummary(date) }.getOrNull()
+        val sleepToday = runCatching { repo.sleepOnDate(date) }.getOrNull()
+
+        return AnomalyDetector.detect(
+            AnomalyDetector.Inputs(
+                rhrToday = today?.restingHeartRate,
+                rhrHistory = rhrHist,
+                hrvToday = sleepToday?.avgHrv,
+                hrvHistory = hrvHist,
+                sleepMinToday = sleepToday?.total?.toMinutes(),
+                sleepMinHistory = sleepHist,
+                stepsToday = today?.steps,
+                stepsHistory = stepsHist,
+            )
+        )
+    }
 
     private suspend fun computeBodyBattery(
         date: LocalDate,
@@ -212,6 +248,7 @@ class HomeViewModel(
 
             val insights = runCatching { computeInsights(date) }.getOrNull()
             val bodyBattery = runCatching { computeBodyBattery(date, sleep) }.getOrNull()
+            val anomalies = runCatching { computeAnomalies(date) }.getOrDefault(emptyList())
 
             _state.value = HomeState(
                 loading = false,
@@ -225,6 +262,7 @@ class HomeViewModel(
                 weeklyCalories = weeklyCal,
                 weeklySleepMin = weeklySleep,
                 insights = insights,
+                anomalies = anomalies,
             )
         }
     }

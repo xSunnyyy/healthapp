@@ -104,6 +104,10 @@ class SettingsViewModel(
         app.triggerManualSync(force = true)
     }
 
+    fun setNotifyMorning(v: Boolean) = viewModelScope.launch { prefsRepo.setNotifyMorning(v) }
+    fun setNotifyGoalNudge(v: Boolean) = viewModelScope.launch { prefsRepo.setNotifyGoalNudge(v) }
+    fun setNotifyBedtime(v: Boolean) = viewModelScope.launch { prefsRepo.setNotifyBedtime(v) }
+
     fun fullRebackfill() = app.triggerManualSync(force = true)
 
     companion object {

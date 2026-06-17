@@ -4,7 +4,6 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -23,6 +22,7 @@ import com.sunny.healthapp.ui.theme.EdgeSoft
 import com.sunny.healthapp.ui.theme.Ink800
 import com.sunny.healthapp.ui.theme.TextPrimary
 import com.sunny.healthapp.ui.theme.TextSecondary
+import com.sunny.healthapp.ui.util.hapticClickable
 
 enum class Period(val label: String) { D("D"), W("W"), M("M"), SixM("6M"), Y("Y") }
 
@@ -58,7 +58,7 @@ fun PeriodTabs(
                     .weight(1f)
                     .clip(RoundedCornerShape(20.dp))
                     .background(bg)
-                    .clickable { onSelect(period) }
+                    .hapticClickable { onSelect(period) }
                     .padding(vertical = 8.dp),
                 contentAlignment = Alignment.Center,
             ) {
