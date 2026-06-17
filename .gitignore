@@ -11,3 +11,5 @@ local.properties
 **/build/
 *.jks
 *.keystore
+# Whitelist the committed debug keystore so every build signs with the same key
+!keystore/debug.keystore
