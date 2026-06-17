@@ -159,7 +159,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                     state.availableSources.forEach { line ->
                         Text(
                             text = line,
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.bodySmall,
                             color = TextSecondary,
                         )
                     }
@@ -405,7 +405,7 @@ private fun DiagRow(label: String, value: String) {
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.bodyMedium,
             color = TextSecondary,
             modifier = Modifier.weight(1f),
         )
@@ -431,7 +431,7 @@ private fun NotifyToggle(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(label, style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
-            Text(description, style = MaterialTheme.typography.labelSmall, color = TextMuted)
+            Text(description, style = MaterialTheme.typography.bodySmall, color = TextMuted)
         }
         Spacer(Modifier.width(12.dp))
         Switch(
