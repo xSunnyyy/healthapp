@@ -156,7 +156,7 @@ private fun InsightRow(
                     Spacer(Modifier.size(4.dp))
                     Text(
                         trend.text,
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.bodySmall,
                         color = trend.color,
                     )
                 }
