@@ -273,21 +273,24 @@ fun SettingsScreen(onBack: () -> Unit) {
                 Spacer(Modifier.height(14.dp))
                 val context = LocalContext.current
                 val scope = rememberCoroutineScope()
-                PillButton("Generate & share PDF") {
-                    scope.launch {
-                        runCatching {
-                            val uri = com.sunny.healthapp.data.report.DoctorReportGenerator.generate(context)
-                            val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                type = "application/pdf"
-                                putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                PillButton(
+                    label = "Generate & share PDF",
+                    onClick = {
+                        scope.launch {
+                            runCatching {
+                                val uri = com.sunny.healthapp.data.report.DoctorReportGenerator.generate(context)
+                                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "application/pdf"
+                                    putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(
+                                    android.content.Intent.createChooser(shareIntent, "Share doctor's report"),
+                                )
                             }
-                            context.startActivity(
-                                android.content.Intent.createChooser(shareIntent, "Share doctor's report"),
-                            )
                         }
-                    }
-                }
+                    },
+                )
             }
         }
 
