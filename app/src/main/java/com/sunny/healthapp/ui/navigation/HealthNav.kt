@@ -26,6 +26,7 @@ import com.sunny.healthapp.ui.screens.home.HomeScreen
 import com.sunny.healthapp.ui.screens.readiness.ReadinessScreen
 import com.sunny.healthapp.ui.screens.settings.SettingsScreen
 import com.sunny.healthapp.ui.screens.sleep.SleepScreen
+import com.sunny.healthapp.ui.screens.trends.HrvTrendScreen
 import com.sunny.healthapp.ui.theme.ActivityGreen
 import com.sunny.healthapp.ui.theme.ReadinessLilac
 import com.sunny.healthapp.ui.theme.SleepBlue
@@ -79,9 +80,12 @@ fun HealthNavHost() {
                 composable("settings") {
                     SettingsScreen(onBack = { navController.popBackStack() })
                 }
+                composable("hrv_trend") {
+                    HrvTrendScreen(onBack = { navController.popBackStack() })
+                }
             }
             // Hide the floating nav on full-screen routes that need their own back-stack feel.
-            if (currentRoute !in setOf("settings")) {
+            if (currentRoute !in setOf("settings", "hrv_trend")) {
                 FloatingNavBar(
                     items = items,
                     selectedKey = backStack?.destination?.hierarchy?.firstOrNull { node ->

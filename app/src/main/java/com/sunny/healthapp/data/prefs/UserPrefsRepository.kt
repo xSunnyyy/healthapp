@@ -25,6 +25,9 @@ class UserPrefsRepository(context: Context) {
             distanceGoalMiles = p[DISTANCE_GOAL_MILES] ?: 3.0f,
             preferredOrigin = p[PREFERRED_ORIGIN],
             phoneFillEnabled = p[PHONE_FILL] ?: false,
+            notifyMorning = p[NOTIFY_MORNING] ?: true,
+            notifyGoalNudge = p[NOTIFY_GOAL] ?: true,
+            notifyBedtime = p[NOTIFY_BEDTIME] ?: false,
         )
     }
 
@@ -39,6 +42,9 @@ class UserPrefsRepository(context: Context) {
         if (value == null) it.remove(PREFERRED_ORIGIN) else it[PREFERRED_ORIGIN] = value
     }
     suspend fun setPhoneFillEnabled(value: Boolean) = store.edit { it[PHONE_FILL] = value }
+    suspend fun setNotifyMorning(v: Boolean) = store.edit { it[NOTIFY_MORNING] = v }
+    suspend fun setNotifyGoalNudge(v: Boolean) = store.edit { it[NOTIFY_GOAL] = v }
+    suspend fun setNotifyBedtime(v: Boolean) = store.edit { it[NOTIFY_BEDTIME] = v }
 
     private companion object {
         val ONBOARDED = booleanPreferencesKey("onboarded")
@@ -48,5 +54,8 @@ class UserPrefsRepository(context: Context) {
         val DISTANCE_GOAL_MILES = floatPreferencesKey("distance_goal_miles")
         val PREFERRED_ORIGIN = stringPreferencesKey("preferred_origin")
         val PHONE_FILL = booleanPreferencesKey("phone_fill_enabled")
+        val NOTIFY_MORNING = booleanPreferencesKey("notify_morning")
+        val NOTIFY_GOAL = booleanPreferencesKey("notify_goal")
+        val NOTIFY_BEDTIME = booleanPreferencesKey("notify_bedtime")
     }
 }

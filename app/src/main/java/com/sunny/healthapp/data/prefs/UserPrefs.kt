@@ -15,4 +15,10 @@ data class UserPrefs(
      * SpO2 and sleep stay strict Fitbit-only regardless.
      */
     val phoneFillEnabled: Boolean = false,
+    /** Daily morning briefing notification opt-in. Fires once near wake time. */
+    val notifyMorning: Boolean = true,
+    /** Evening goal nudge if today's steps are within range of goal. */
+    val notifyGoalNudge: Boolean = true,
+    /** Reminder to wind down for bed at a target hour. */
+    val notifyBedtime: Boolean = false,
 )

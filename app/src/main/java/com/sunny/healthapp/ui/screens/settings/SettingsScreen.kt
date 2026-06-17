@@ -36,7 +36,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -228,6 +230,69 @@ fun SettingsScreen(onBack: () -> Unit) {
 
         Spacer(Modifier.height(20.dp))
 
+        // --- Notifications ---
+        SectionLabel("Notifications")
+        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+            Panel(modifier = Modifier.fillMaxWidth(), contentPadding = 12.dp) {
+                NotifyToggle(
+                    label = "Morning briefing",
+                    description = "Sleep + RHR summary around 7:30 AM",
+                    checked = state.prefs.notifyMorning,
+                    onChange = { vm.setNotifyMorning(it) },
+                )
+                Divider()
+                NotifyToggle(
+                    label = "Goal nudge",
+                    description = "Around 7:30 PM if you're within 2k of your step goal",
+                    checked = state.prefs.notifyGoalNudge,
+                    onChange = { vm.setNotifyGoalNudge(it) },
+                )
+                Divider()
+                NotifyToggle(
+                    label = "Bedtime reminder",
+                    description = "Around 9:45 PM, suggesting wind-down",
+                    checked = state.prefs.notifyBedtime,
+                    onChange = { vm.setNotifyBedtime(it) },
+                )
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        // --- Doctor's report ---
+        SectionLabel("Doctor's report")
+        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+            Panel(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    "Generate a 1-page PDF summary of your last 30 days — averages, " +
+                        "trend charts for RHR, sleep duration, and HRV. Useful to share " +
+                        "with a clinician.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                )
+                Spacer(Modifier.height(14.dp))
+                val context = LocalContext.current
+                val scope = rememberCoroutineScope()
+                PillButton("Generate & share PDF") {
+                    scope.launch {
+                        runCatching {
+                            val uri = com.sunny.healthapp.data.report.DoctorReportGenerator.generate(context)
+                            val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                type = "application/pdf"
+                                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(
+                                android.content.Intent.createChooser(shareIntent, "Share doctor's report"),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
         // --- Sync ---
         SectionLabel("Sync")
         Box(modifier = Modifier.padding(horizontal = 20.dp)) {
@@ -346,6 +411,35 @@ private fun DiagRow(label: String, value: String) {
             style = MaterialTheme.typography.bodyMedium,
             color = TextPrimary,
             modifier = Modifier.weight(1.4f),
+        )
+    }
+}
+
+@Composable
+private fun NotifyToggle(
+    label: String,
+    description: String,
+    checked: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
+            Text(description, style = MaterialTheme.typography.labelSmall, color = TextMuted)
+        }
+        Spacer(Modifier.width(12.dp))
+        Switch(
+            checked = checked,
+            onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.Black,
+                checkedTrackColor = Accent,
+                uncheckedThumbColor = TextMuted,
+                uncheckedTrackColor = Ink800,
+            ),
         )
     }
 }

@@ -48,6 +48,7 @@ import com.sunny.healthapp.ui.components.BarChart7Day
 import com.sunny.healthapp.ui.components.BarPoint
 import com.sunny.healthapp.ui.components.DateScrubber
 import com.sunny.healthapp.ui.components.EditorialHeader
+import com.sunny.healthapp.ui.components.AnomalyPanel
 import com.sunny.healthapp.ui.components.BodyBatteryPanel
 import com.sunny.healthapp.ui.components.InsightsPanel
 import com.sunny.healthapp.ui.components.MiniArea
@@ -199,9 +200,18 @@ private fun HomeContent(
             }
         }
 
-        state.insights?.let { insights ->
+        if (state.anomalies.isNotEmpty()) {
             Spacer(Modifier.height(16.dp))
             StaggeredEnter(index = 6) { m ->
+                Box(modifier = m.padding(horizontal = 20.dp)) {
+                    AnomalyPanel(insights = state.anomalies)
+                }
+            }
+        }
+
+        state.insights?.let { insights ->
+            Spacer(Modifier.height(16.dp))
+            StaggeredEnter(index = 7) { m ->
                 Box(modifier = m.padding(horizontal = 20.dp)) {
                     InsightsPanel(insights = insights)
                 }

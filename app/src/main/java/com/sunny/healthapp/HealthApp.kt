@@ -7,6 +7,8 @@ import com.sunny.healthapp.data.db.HealthDatabase
 import com.sunny.healthapp.data.health.HealthConnectAvailability
 import com.sunny.healthapp.data.health.HealthConnectManager
 import com.sunny.healthapp.data.health.HealthRepository
+import com.sunny.healthapp.data.notifications.NotificationsWorker
+import com.sunny.healthapp.data.notifications.VitalsNotifications
 import com.sunny.healthapp.data.prefs.UserPrefsRepository
 import com.sunny.healthapp.data.sync.HealthSyncManager
 import com.sunny.healthapp.data.sync.HealthSyncWorker
@@ -54,6 +56,8 @@ class HealthApp : Application(), Configuration.Provider {
         repository = HealthRepository(healthConnect, database)
 
         HealthSyncWorker.schedule(this)
+        VitalsNotifications.ensureChannel(this)
+        NotificationsWorker.schedule(this)
         appScope.launch {
             try {
                 if (healthConnect.availability == HealthConnectAvailability.Installed &&
